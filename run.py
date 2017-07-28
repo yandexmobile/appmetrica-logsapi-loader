@@ -275,9 +275,7 @@ def process_date(date: str, token: str, api_key: str,
     drop_table(db, 'tmp_data_ins')
 
 
-def main(first_flag: bool = False) -> None:
-    setup_logging(settings.DEBUG)
-
+def update(first_flag: bool = False) -> None:
     days_delta = 7
     if first_flag:
         days_delta = settings.HISTORY_PERIOD
@@ -307,6 +305,26 @@ def main(first_flag: bool = False) -> None:
             logger.info('Loading data for {}'.format(date_str))
             process_date(date_str, token, api_key, database, table)
     logger.info('Finished loading data')
+
+
+def main():
+    setup_logging(settings.DEBUG)
+
+    is_first = True
+    logger.info("Starting updater loop "
+                "(interval = {} seconds)".format(settings.FETCH_INTERVAL))
+    while True:
+        try:
+            if is_first:
+                logger.info('Loading historical data')
+                update(first_flag=True)
+                is_first = False
+            else:
+                logger.info("Run Logs API fetch")
+                update(first_flag=False)
+            time.sleep(settings.FETCH_INTERVAL)
+        except KeyboardInterrupt:
+            return
 
 
 if __name__ == '__main__':
