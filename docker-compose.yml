@@ -1,0 +1,16 @@
+version: '3'
+services:
+  loader:
+    build: './'
+    environment:
+     - TOKEN=${TOKEN}
+     - API_KEYS=${API_KEYS}
+     - CH_HOST=http://db:8123
+    depends_on:
+     - db
+  db:
+    image: 'yandex/clickhouse-server'
+    volumes:
+      - db-data:/var/lib/clickhouse
+volumes:
+  db-data:
