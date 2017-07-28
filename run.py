@@ -35,8 +35,7 @@ def setup_logging(debug: bool = False) -> None:
 
 
 def get_create_date(api_key: str, token: str) -> str:
-    url_tmpl = 'https://api.appmetrica.yandex.ru' \
-               '/management/v1/application' \
+    url_tmpl = 'https://api.appmetrica.yandex.ru/management/v1/application' \
                '/{id}' \
                '?oauth_token={token}'
     url = url_tmpl.format(
