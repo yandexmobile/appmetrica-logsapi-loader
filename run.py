@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-  logs_api_int_script.py
+  run.py
 
   This file is a part of the AppMetrica.
 
