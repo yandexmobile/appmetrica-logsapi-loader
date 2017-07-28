@@ -22,6 +22,7 @@ import pandas as pd
 import io
 
 import settings
+import fields
 
 logger = logging.getLogger(__name__)
 
@@ -52,16 +53,42 @@ def get_create_date(api_key: str, token: str) -> str:
     return create_date
 
 
+def get_fields():
+    all_fields = []
+    all_fields += fields.required
+    for field_tuple in fields.optional:
+        param = field_tuple[0]
+        if param in settings.FIELDS:
+            all_fields += [field_tuple]
+    return list(sorted(all_fields, key=lambda t: t[1]))
+
+
+def get_fields_params():
+    return [t[0] for t in get_fields() if t[0] not in fields.generated_params]
+
+
+def get_db_table_model():
+    return ', '.join(('{} {}'.format(t[1], t[2]) for t in get_fields()))
+
+
+def get_db_fields_list():
+    return [t[1] for t in get_fields()]
+
+
+def get_db_key_fields_list():
+    keys = settings.KEY_FIELDS
+    if len(keys) == 0:
+        return get_db_fields_list()
+    return [t[1] for t in get_fields() if t[0] in keys]
+
+
+def get_export_keys_list():
+    return [t[0] for t in get_fields()]
+
+
 def load_logs_api_data(api_key: str, date1: str, date2: str,
                        token: str) -> pd.DataFrame:
-    fields = '%2C'.join([
-        'event_name',
-        'event_timestamp',
-        'appmetrica_device_id',
-        'os_name',
-        'country_iso_code',
-        'city',
-    ])
+    requested_fields = '%2C'.join(get_fields_params())
     url_tmpl = 'https://api.appmetrica.yandex.ru/logs/v1/export/events.csv' \
                '?application_id={api_key}' \
                '&date_since={date1}%2000%3A00%3A00' \
@@ -72,7 +99,7 @@ def load_logs_api_data(api_key: str, date1: str, date2: str,
     url = url_tmpl.format(api_key=api_key,
                           date1=date1,
                           date2=date2,
-                          fields=fields,
+                          fields=requested_fields,
                           token=token)
 
     r = requests.get(url)
@@ -86,9 +113,6 @@ def load_logs_api_data(api_key: str, date1: str, date2: str,
         r = requests.get(url)
 
     df = pd.read_csv(io.StringIO(r.text))
-    df['event_date'] = list(map(lambda x: datetime.datetime
-                                .fromtimestamp(x)
-                                .strftime('%Y-%m-%d'), df.event_timestamp))
     return df
 
 
@@ -154,22 +178,15 @@ def table_exists(db: str, table: str) -> bool:
 
 def table_create(db: str, table: str) -> None:
     q = '''
-    CREATE TABLE {db}.{table} (
-        EventDate Date,
-        DeviceID String,
-        EventName String,
-        EventTimestamp UInt64,
-        AppPlatform String,
-        Country String,
-        APIKey UInt64
-    )
+    CREATE TABLE {db}.{table} ({model})
     ENGINE = MergeTree(EventDate, 
                         cityHash64(DeviceID), 
                         (EventDate, cityHash64(DeviceID)), 
                         8192)
     '''.format(
         db=db,
-        table=table
+        table=table,
+        model=get_db_table_model()
     )
     get_clickhouse_data(q)
 
@@ -183,29 +200,11 @@ def create_tmp_table_for_insert(db: str, table: str, date1: str, date2: str,
                                             8192)
         AS
         SELECT
-            EventDate,
-            DeviceID,
-            EventName,
-            EventTimestamp,
-            AppPlatform,
-            Country,
-            APIKey
+            {fields_list}
         FROM {db}.{tmp_table}
-        WHERE NOT ((EventDate, 
-                    DeviceID,
-                    EventName,
-                    EventTimestamp,
-                    AppPlatform,
-                    Country,
-                    APIKey) 
+        WHERE NOT (({key_fields_list}) 
             GLOBAL IN (SELECT
-                EventDate,
-                DeviceID,
-                EventName,
-                EventTimestamp,
-                AppPlatform,
-                Country,
-                APIKey
+                {key_fields_list}
             FROM {db}.{table}
             WHERE EventDate >= '{date1}' AND EventDate <= '{date2}'))
     '''.format(
@@ -214,7 +213,9 @@ def create_tmp_table_for_insert(db: str, table: str, date1: str, date2: str,
         tmp_data_ins=tmp_data_ins,
         table=table,
         date1=date1,
-        date2=date2
+        date2=date2,
+        fields_list = ', '.join(get_db_fields_list()),
+        key_fields_list = ', '.join(get_db_key_fields_list())
     )
 
     get_clickhouse_data(q)
@@ -224,18 +225,13 @@ def insert_data_to_prod(db: str, from_table: str, to_table: str) -> None:
     q = '''
         INSERT INTO {db}.{to_table}
             SELECT
-                EventDate,
-                DeviceID,
-                EventName,
-                EventTimestamp,
-                AppPlatform,
-                Country,
-                APIKey
+                {fields_list}
             FROM {db}.{from_table}
     '''.format(
         db=db,
         from_table=from_table,
-        to_table=to_table
+        to_table=to_table,
+        fields_list=', '.join(get_db_fields_list())
     )
 
     get_clickhouse_data(q)
@@ -246,6 +242,11 @@ def process_date(date: str, token: str, api_key: str,
     df = load_logs_api_data(api_key, date, date, token)
     df = df.drop_duplicates()
     df['api_key'] = api_key
+    for field_tuple in get_fields():
+        param = field_tuple[0]
+        converter = field_tuple[3]
+        if converter:
+            df[param] = converter(df)
 
     temp_table = '{}_tmp_data'.format(table)
     temp_table_insert = '{}_tmp_data_ins'.format(table)
@@ -258,13 +259,7 @@ def process_date(date: str, token: str, api_key: str,
     upload_clickhouse_data(
         db,
         temp_table,
-        df[['event_date',
-            'appmetrica_device_id',
-            'event_name',
-            'event_timestamp',
-            'os_name',
-            'country_iso_code',
-            'api_key']].to_csv(index=False, sep='\t')
+        df[get_export_keys_list()].to_csv(index=False, sep='\t')
     )
     create_tmp_table_for_insert(db, table, date, date,
                                 temp_table, temp_table_insert)
@@ -275,9 +270,9 @@ def process_date(date: str, token: str, api_key: str,
 
 
 def update(first_flag: bool = False) -> None:
-    days_delta = 7
+    days_delta = settings.CHECK_PERIOD
     if first_flag:
-        days_delta = settings.HISTORY_PERIOD
+        days_delta = settings.INITIAL_PERIOD
 
     time_delta = datetime.timedelta(days_delta)
     today = datetime.datetime.today()
@@ -290,6 +285,7 @@ def update(first_flag: bool = False) -> None:
         logger.info('Database "{}" created'.format(database))
 
     table = settings.CH_TABLE
+    drop_table(database, table)
     if not table_exists(database, table):
         table_create(database, table)
         logger.info('Table "{}" created'.format(table))

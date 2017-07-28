@@ -11,7 +11,10 @@ DEBUG = environ.get('DEBUG', '0') == '1'
 
 TOKEN = environ['TOKEN']
 API_KEYS = json.loads(environ['API_KEYS'])
-HISTORY_PERIOD = int(environ.get('HISTORY_PERIOD', '30'))  # 30 days
+FIELDS = json.loads(environ['FIELDS'])
+KEY_FIELDS = set(json.loads(environ.get('KEY_FIELDS', '[]')))  # empty = all fields
+INITIAL_PERIOD = int(environ.get('INITIAL_PERIOD', '30'))  # 30 days
+CHECK_PERIOD = int(environ.get('CHECK_PERIOD', '7'))  # 7 days
 FETCH_INTERVAL = int(environ.get('FETCH_INTERVAL', '43200'))  # 12 hours
 
 CH_HOST = environ.get('CH_HOST', 'http://localhost:8123')
