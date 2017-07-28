@@ -14,6 +14,8 @@
 import datetime
 import json
 import time
+from typing import Tuple
+
 import requests
 import logging
 import pandas as pd
@@ -32,12 +34,16 @@ def setup_logging(debug: bool = False) -> None:
     logging.basicConfig(format=logging_format, level=level)
 
 
-def get_create_date(api_key, token):
-    app_details_url = 'https://api.appmetrica.yandex.ru/management/v1/application/{id}?oauth_token={token}'.format(
+def get_create_date(api_key: str, token: str) -> str:
+    url_tmpl = 'https://api.appmetrica.yandex.ru' \
+               '/management/v1/application' \
+               '/{id}' \
+               '?oauth_token={token}'
+    url = url_tmpl.format(
         id=api_key,
         token=token
     )
-    r = requests.get(app_details_url)
+    r = requests.get(url)
     create_date = None
     if r.status_code == 200:
         app_details = json.load(r.text)
@@ -47,11 +53,27 @@ def get_create_date(api_key, token):
     return create_date
 
 
-def load_logs_api_data(api_key, date1, date2, token):
-    url_tmpl = 'https://api.appmetrica.yandex.ru/logs/v1/export/events.csv?application_id={api_key}&date_since={date1}%2000%3A00%3A00&date_until={date2}%2023%3A59%3A59&date_dimension=default&fields=event_name%2Cevent_timestamp%2Cappmetrica_device_id%2Cos_name%2Ccountry_iso_code%2Ccity&oauth_token={token}'
+def load_logs_api_data(api_key: str, date1: str, date2: str,
+                       token: str) -> pd.DataFrame:
+    fields = '%2C'.join([
+        'event_name',
+        'event_timestamp',
+        'appmetrica_device_id',
+        'os_name',
+        'country_iso_code',
+        'city',
+    ])
+    url_tmpl = 'https://api.appmetrica.yandex.ru/logs/v1/export/events.csv' \
+               '?application_id={api_key}' \
+               '&date_since={date1}%2000%3A00%3A00' \
+               '&date_until={date2}%2023%3A59%3A59' \
+               '&date_dimension=default' \
+               '&fields={fields}' \
+               '&oauth_token={token}'
     url = url_tmpl.format(api_key=api_key,
                           date1=date1,
                           date2=date2,
+                          fields=fields,
                           token=token)
 
     r = requests.get(url)
@@ -71,14 +93,14 @@ def load_logs_api_data(api_key, date1, date2, token):
     return df
 
 
-def get_clickhouse_auth():
+def get_clickhouse_auth() -> Tuple[str, str]:
     auth = None
     if settings.CH_USER:
         auth = (settings.CH_USER, settings.CH_PASSWORD)
     return auth
 
 
-def query_clickhouse(data, params=None):
+def query_clickhouse(data: str, params: dict = None) -> str:
     """Returns ClickHouse response"""
     log_data = data
     if len(log_data) > 200:
@@ -94,46 +116,44 @@ def query_clickhouse(data, params=None):
         raise ValueError(r.text)
 
 
-def get_clickhouse_data(query):
+def get_clickhouse_data(query: str) -> str:
     """Returns ClickHouse response"""
     return query_clickhouse(query)
 
 
-def upload_clickhouse_data(table, content):
+def upload_clickhouse_data(db: str, table: str, content: str) -> str:
     """Uploads data to table in ClickHouse"""
-    query_dict = {
-        'query': 'INSERT INTO ' + table + ' FORMAT TabSeparatedWithNames '
-    }
-    return query_clickhouse(content, params=query_dict)
+    query = 'INSERT INTO {db}.{table} FORMAT TabSeparatedWithNames' \
+        .format(db=db, table=table)
+    return query_clickhouse(content, params={'query': query})
 
 
-def drop_table(db, table):
+def drop_table(db: str, table: str) -> None:
     q = 'DROP TABLE IF EXISTS {db}.{table}'.format(
         db=db,
         table=table
     )
-
     get_clickhouse_data(q)
 
 
-def database_exists(db):
+def database_exists(db: str) -> bool:
     q = 'SHOW DATABASES'
     dbs = get_clickhouse_data(q).strip().split('\n')
     return db in dbs
 
 
-def database_create(db):
+def database_create(db: str) -> None:
     q = 'CREATE DATABASE {db}'.format(db=db)
     get_clickhouse_data(q)
 
 
-def table_exists(db, table):
+def table_exists(db: str, table: str) -> bool:
     q = 'SHOW TABLES FROM {db}'.format(db=db)
     tables = get_clickhouse_data(q).strip().split('\n')
     return table in tables
 
 
-def table_create(db, table):
+def table_create(db: str, table: str) -> None:
     q = '''
     CREATE TABLE {db}.{table} (
         EventDate Date,
@@ -155,9 +175,10 @@ def table_create(db, table):
     get_clickhouse_data(q)
 
 
-def create_tmp_table_for_insert(db, table, date1, date2):
+def create_tmp_table_for_insert(db: str, table: str, date1: str, date2: str,
+                                tmp_table: str, tmp_data_ins: str) -> None:
     q = '''
-        CREATE TABLE tmp_data_ins ENGINE = MergeTree(EventDate, 
+        CREATE TABLE {db}.{tmp_data_ins} ENGINE = MergeTree(EventDate, 
                                             cityHash64(DeviceID),
                                             (EventDate, cityHash64(DeviceID)), 
                                             8192)
@@ -170,7 +191,7 @@ def create_tmp_table_for_insert(db, table, date1, date2):
             AppPlatform,
             Country,
             APIKey
-        FROM tmp_data
+        FROM {db}.{tmp_table}
         WHERE NOT ((EventDate, 
                     DeviceID,
                     EventName,
@@ -190,6 +211,8 @@ def create_tmp_table_for_insert(db, table, date1, date2):
             WHERE EventDate >= '{date1}' AND EventDate <= '{date2}'))
     '''.format(
         db=db,
+        tmp_table=tmp_table,
+        tmp_data_ins=tmp_data_ins,
         table=table,
         date1=date1,
         date2=date2
@@ -198,9 +221,9 @@ def create_tmp_table_for_insert(db, table, date1, date2):
     get_clickhouse_data(q)
 
 
-def insert_data_to_prod(db, table):
+def insert_data_to_prod(db: str, from_table: str, to_table: str) -> None:
     q = '''
-        INSERT INTO {db}.{table}
+        INSERT INTO {db}.{to_table}
             SELECT
                 EventDate,
                 DeviceID,
@@ -209,27 +232,33 @@ def insert_data_to_prod(db, table):
                 AppPlatform,
                 Country,
                 APIKey
-            FROM tmp_data_ins
+            FROM {db}.{from_table}
     '''.format(
         db=db,
-        table=table
+        from_table=from_table,
+        to_table=to_table
     )
 
     get_clickhouse_data(q)
 
 
-def process_date(date, token, api_key, db, table):
+def process_date(date: str, token: str, api_key: str,
+                 db: str, table: str) -> None:
     df = load_logs_api_data(api_key, date, date, token)
     df = df.drop_duplicates()
     df['api_key'] = api_key
 
-    drop_table('default', 'tmp_data')
-    drop_table('default', 'tmp_data_ins')
+    temp_table = '{}_tmp_data'.format(table)
+    temp_table_insert = '{}_tmp_data_ins'.format(table)
 
-    table_create('default', 'tmp_data')
+    drop_table(db, temp_table)
+    drop_table(db, temp_table_insert)
+
+    table_create(db, temp_table)
 
     upload_clickhouse_data(
-        'tmp_data',
+        db,
+        temp_table,
         df[['event_date',
             'appmetrica_device_id',
             'event_name',
@@ -238,13 +267,15 @@ def process_date(date, token, api_key, db, table):
             'country_iso_code',
             'api_key']].to_csv(index=False, sep='\t')
     )
-    create_tmp_table_for_insert(db, table, date, date)
-    insert_data_to_prod(db, table)
-    drop_table('default', 'tmp_data')
-    drop_table('default', 'tmp_data_ins')
+    create_tmp_table_for_insert(db, table, date, date,
+                                temp_table, temp_table_insert)
+    insert_data_to_prod(db, temp_table_insert, table)
+
+    drop_table(db, 'tmp_data')
+    drop_table(db, 'tmp_data_ins')
 
 
-def main(first_flag=False):
+def main(first_flag: bool = False) -> None:
     setup_logging(settings.DEBUG)
 
     days_delta = 7
