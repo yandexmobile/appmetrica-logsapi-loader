@@ -285,7 +285,6 @@ def update(first_flag: bool = False) -> None:
         logger.info('Database "{}" created'.format(database))
 
     table = settings.CH_TABLE
-    drop_table(database, table)
     if not table_exists(database, table):
         table_create(database, table)
         logger.info('Table "{}" created'.format(table))
