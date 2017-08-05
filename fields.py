@@ -31,10 +31,11 @@ class FieldsCollection(object):
     def __init__(self, field_args, requested_fields, key_fields):
         self._fields = [f for f in self._to_fields(field_args)
                         if f.required or f.load_name in requested_fields]
-        if not key_fields or len(key_fields) == 0:
-            self._key_fields = [f.db_name for f in self._fields]
-        else:
-            self._key_fields = key_fields
+        key_fields = key_fields or []
+        key_fields = [f for f in self._fields if f.load_name in key_fields]
+        if len(key_fields) == 0:
+            key_fields = self._fields
+        self._key_fields = key_fields
 
     @staticmethod
     def _to_fields(field_args):
@@ -56,8 +57,7 @@ class FieldsCollection(object):
         return [(f.db_name, f.db_type) for f in self._fields]
 
     def get_db_keys(self) -> List[str]:
-        return [f.db_name for f in self._fields
-                if f.db_name in self._key_fields]
+        return [f.db_name for f in self._key_fields]
 
     def get_export_keys_list(self) -> List[str]:
         return [f.load_name for f in self._fields]
