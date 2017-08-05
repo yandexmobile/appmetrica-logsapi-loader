@@ -78,11 +78,10 @@ class ClickhouseDatabase(Database):
         return auth
 
     def _query_clickhouse(self, query_text: str, **params):
-        log_data = query_text
+        log_data = query_text.replace('\n', ' ')
         if len(log_data) > self.QUERY_LOG_LIMIT:
             log_data = log_data[:self.QUERY_LOG_LIMIT] + '[...]'
-        logger.debug('Query ClickHouse:\n{}\n\tHTTP params: {}'
-                     .format(log_data, params))
+        logger.debug('Query ClickHouse: {} >>> {}'.format(params, log_data))
         auth = self._get_clickhouse_auth()
         r = requests.post(self.url, data=query_text, params=params, auth=auth)
         if r.status_code == 200:

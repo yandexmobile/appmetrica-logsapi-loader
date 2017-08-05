@@ -88,11 +88,37 @@ class Updater(object):
         )
         self._db.query(query)
 
+    def _load_data(self, api_key, date):
+        df = self._logs_api_client.load(api_key, self._source_name,
+                                        self._load_fields,
+                                        date, date)
+        df = df.drop_duplicates()
+        df['api_key'] = api_key
+        for (name, converter) in self._filed_converters:
+            df[name] = converter(df)
+        return df
+
+    def _get_update_data(self, df):
+        escape_characters = {
+            '\b': '\\b',
+            '\r': '\\r',
+            '\f': '\\f',
+            '\n': '\\\\n',
+            '\t': '\\t',
+            '\0': '\\0',
+            '\'': '\\\'',
+            '\\\\': '\\\\',
+        }
+        sub_df = df[self._export_fields]
+        escaped = sub_df.replace(escape_characters, regex=True)
+        tsv = escaped.to_csv(index=False, sep='\t')
+        return tsv
+
     def prepare(self):
         if not self._db.database_exists():
             self._db.create_database()
             logger.info('Database "{}" created'.format(self._db.db_name))
-        scheme = str((self._engine, tuple(self._db_fields)))
+        scheme = str((self._source_name, self._engine, tuple(self._db_fields)))
         table_exists = self._db.table_exists(self._table_name)
         scheme_valid = self._state_controller.is_valid_scheme(scheme)
         if not table_exists or not scheme_valid:
@@ -103,24 +129,14 @@ class Updater(object):
             logger.info('Table "{}" created'.format(self._table_name))
 
     def update(self, api_key: str, date: datetime.date):
-        df = self._logs_api_client.load(api_key, self._source_name,
-                                        self._load_fields,
-                                        date, date)
-        df = df.drop_duplicates()
-        df['api_key'] = api_key
-        for (name, converter) in self._filed_converters:
-            df[name] = converter(df)
+        df = self._load_data(api_key, date)
 
         self._db.drop_table(self._temp_table_load_name)
         self._db.drop_table(self._temp_table_insert_name)
 
         self._db.create_table(self._temp_table_load_name, self._engine,
                               self._db_fields)
-
-        self._db.insert(
-            self._temp_table_load_name,
-            df[self._export_fields].to_csv(index=False, sep='\t')
-        )
+        self._db.insert(self._temp_table_load_name, self._get_update_data(df))
         self._create_tmp_table_for_insert(date, date)
         self._insert_data_to_prod()
 

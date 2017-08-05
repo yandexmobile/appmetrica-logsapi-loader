@@ -50,10 +50,13 @@ class LogsApiClient(object):
              date_from:datetime.date, date_to:datetime.date) -> DataFrame:
         url = 'https://api.appmetrica.yandex.ru/logs/v1/export/{table}.csv'\
             .format(table=table)
+        time_from = datetime.datetime.combine(date_from, datetime.time.min)
+        time_to = datetime.datetime.combine(date_to, datetime.time.max)
+        format = '%Y-%m-%d %H:%M:%S'
         params = {
             'application_id': api_key,
-            'date_since': '{} 00:00:00'.format(date_from.strftime('%Y-%m-%d')),
-            'date_until': '{} 23:59:59'.format(date_to.strftime('%Y-%m-%d')),
+            'date_since': time_from.strftime(format),
+            'date_until': time_to.strftime(format),
             'date_dimension': 'default',
             'fields': ','.join(fields),
             'oauth_token': self.token

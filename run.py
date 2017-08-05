@@ -16,7 +16,8 @@ import time
 
 import settings
 from db import ClickhouseDatabase
-from fields import FieldsCollection, event_fields
+from fields import FieldsCollection
+from fields_declaration import fields
 from logs_api import LogsApiClient
 from updater import Updater
 from state_storage import FileStateStorage, StateController
@@ -36,7 +37,8 @@ def main():
     setup_logging(settings.DEBUG)
 
     api_keys = settings.API_KEYS
-    fields_collection = FieldsCollection(event_fields,
+    source_name = settings.SOURCE_NAME
+    fields_collection = FieldsCollection(fields[source_name],
                                          settings.FIELDS, settings.KEY_FIELDS)
     logs_api_client = LogsApiClient(settings.TOKEN)
     database = ClickhouseDatabase(settings.CH_HOST,
@@ -45,7 +47,7 @@ def main():
     state_storage = FileStateStorage('state.json')
     state_controller = StateController(state_storage)
     updater = Updater(logs_api_client, database, fields_collection,
-                      state_controller, 'events', settings.CH_TABLE)
+                      state_controller, source_name, settings.CH_TABLE)
 
     logger.info("Starting updater loop")
     updater.prepare()

@@ -12,6 +12,7 @@ DEBUG = environ.get('DEBUG', '0') == '1'
 
 TOKEN = environ['TOKEN']
 API_KEYS = json.loads(environ['API_KEYS'])
+SOURCE_NAME = environ['SOURCE_NAME']
 FIELDS = json.loads(environ['FIELDS'])
 KEY_FIELDS = set(json.loads(environ.get('KEY_FIELDS', '[]')))  # empty = all fields
 
