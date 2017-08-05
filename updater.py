@@ -13,11 +13,10 @@
 import datetime
 import logging
 
-import pandas as pd
-
 from db import Database
 from fields import FieldsCollection
 from logs_api import LogsApiClient
+from state_storage import StateController
 
 logger = logging.getLogger(__name__)
 
@@ -27,11 +26,13 @@ class Updater(object):
                  logs_api_client: LogsApiClient,
                  db: Database,
                  fields_collection: FieldsCollection,
+                 state_controller: StateController,
                  source_name: str,
                  table_name: str):
-        self.logs_api_client = logs_api_client
-        self.db = db
-        self.table_name = table_name
+        self._logs_api_client = logs_api_client
+        self._db = db
+        self._table_name = table_name
+        self._state_controller = state_controller
         self._source_name = source_name
         self._temp_table_load_name = '{}_tmp_data'.format(table_name)
         self._temp_table_insert_name = '{}_tmp_data_ins'.format(table_name)
@@ -47,7 +48,8 @@ class Updater(object):
         self._export_fields = fields_collection.get_export_keys_list()
         self._filed_converters = fields_collection.get_converters()
 
-    def _create_tmp_table_for_insert(self, date1: str, date2: str):
+    def _create_tmp_table_for_insert(self, date1: datetime.date,
+                                     date2: datetime.date):
         query = '''
             CREATE TABLE {db}.{tmp_ins_table} ENGINE = {engine}
             AS
@@ -61,16 +63,16 @@ class Updater(object):
                 WHERE EventDate >= '{date1}' AND EventDate <= '{date2}'))
         '''.format(
             engine=self._engine,
-            db=self.db.db_name,
+            db=self._db.db_name,
             tmp_load_table=self._temp_table_load_name,
             tmp_ins_table=self._temp_table_insert_name,
-            table=self.table_name,
-            date1=date1,
-            date2=date2,
+            table=self._table_name,
+            date1=date1.strftime('%Y-%m-%d'),
+            date2=date2.strftime('%Y-%m-%d'),
             fields_list=self._db_fields_str,
             key_fields_list=self._key_fields_str
         )
-        self.db.query(query)
+        self._db.query(query)
 
     def _insert_data_to_prod(self):
         query = '''
@@ -79,58 +81,50 @@ class Updater(object):
                     {fields_list}
                 FROM {db}.{from_table}
         '''.format(
-            db=self.db.db_name,
+            db=self._db.db_name,
             from_table=self._temp_table_insert_name,
-            to_table=self.table_name,
+            to_table=self._table_name,
             fields_list=self._db_fields_str
         )
-        self.db.query(query)
+        self._db.query(query)
 
-    def _process_date(self, api_key: str, date: str):
-        df = self.logs_api_client.load(api_key, self._source_name,
-                                       self._load_fields,
-                                       date, date)
+    def prepare(self):
+        if not self._db.database_exists():
+            self._db.create_database()
+            logger.info('Database "{}" created'.format(self._db.db_name))
+        scheme = str((self._engine, tuple(self._db_fields)))
+        table_exists = self._db.table_exists(self._table_name)
+        scheme_valid = self._state_controller.is_valid_scheme(scheme)
+        if not table_exists or not scheme_valid:
+            self._db.drop_table(self._table_name)
+            self._db.create_table(self._table_name, self._engine,
+                                  self._db_fields)
+            self._state_controller.update_db_scheme(scheme)
+            logger.info('Table "{}" created'.format(self._table_name))
+
+    def update(self, api_key: str, date: datetime.date):
+        df = self._logs_api_client.load(api_key, self._source_name,
+                                        self._load_fields,
+                                        date, date)
         df = df.drop_duplicates()
         df['api_key'] = api_key
         for (name, converter) in self._filed_converters:
             df[name] = converter(df)
 
-        self.db.drop_table(self._temp_table_load_name)
-        self.db.drop_table(self._temp_table_insert_name)
+        self._db.drop_table(self._temp_table_load_name)
+        self._db.drop_table(self._temp_table_insert_name)
 
-        self.db.create_table(self._temp_table_load_name, self._engine,
-                             self._db_fields)
+        self._db.create_table(self._temp_table_load_name, self._engine,
+                              self._db_fields)
 
-        self.db.insert(
+        self._db.insert(
             self._temp_table_load_name,
             df[self._export_fields].to_csv(index=False, sep='\t')
         )
         self._create_tmp_table_for_insert(date, date)
         self._insert_data_to_prod()
 
-        self.db.drop_table(self._temp_table_load_name)
-        self.db.drop_table(self._temp_table_insert_name)
+        self._state_controller.mark_updated(api_key, date)
 
-    def prepare(self):
-        if not self.db.database_exists():
-            self.db.create_database()
-            logger.info('Database "{}" created'.format(self.db.db_name))
-        if not self.db.table_exists(self.table_name):
-            self.db.create_table(self.table_name, self._engine,
-                                 self._db_fields)
-            logger.info('Table "{}" created'.format(self.table_name))
-
-    def update(self, api_keys, days_count):
-        time_delta = datetime.timedelta(days_count)
-        today = datetime.datetime.today()
-        date_from = (today - time_delta).strftime('%Y-%m-%d')
-        date_to = today.strftime('%Y-%m-%d')
-
-        logger.info('Loading period {} - {}'.format(date_from, date_to))
-        for api_key in api_keys:
-            logger.info('Processing API key: {}'.format(api_key))
-            for date in pd.date_range(date_from, date_to):
-                date_str = date.strftime('%Y-%m-%d')
-                logger.info('Loading data for {}'.format(date_str))
-                self._process_date(api_key, date_str)
-        logger.info('Finished loading data')
+        self._db.drop_table(self._temp_table_load_name)
+        self._db.drop_table(self._temp_table_insert_name)

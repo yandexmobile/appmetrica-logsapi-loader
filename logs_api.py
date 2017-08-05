@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-  logs-api.py
+  logs_api.py
 
   This file is a part of the AppMetrica.
 
@@ -10,6 +10,7 @@
   You may obtain a copy of the License at:
         https://yandex.com/legal/metrica_termsofuse/
 """
+import datetime
 import json
 
 import logging
@@ -46,13 +47,13 @@ class LogsApiClient(object):
         return create_date
 
     def load(self, api_key:str, table:str, fields:List[str],
-             date_from:str, date_to:str) -> DataFrame:
+             date_from:datetime.date, date_to:datetime.date) -> DataFrame:
         url = 'https://api.appmetrica.yandex.ru/logs/v1/export/{table}.csv'\
             .format(table=table)
         params = {
             'application_id': api_key,
-            'date_since': '{} 00:00:00'.format(date_from),
-            'date_until': '{} 23:59:59'.format(date_to),
+            'date_since': '{} 00:00:00'.format(date_from.strftime('%Y-%m-%d')),
+            'date_until': '{} 23:59:59'.format(date_to.strftime('%Y-%m-%d')),
             'date_dimension': 'default',
             'fields': ','.join(fields),
             'oauth_token': self.token

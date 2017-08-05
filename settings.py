@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import datetime
 import json
 from os import environ
 from os.path import join, dirname
@@ -13,9 +14,10 @@ TOKEN = environ['TOKEN']
 API_KEYS = json.loads(environ['API_KEYS'])
 FIELDS = json.loads(environ['FIELDS'])
 KEY_FIELDS = set(json.loads(environ.get('KEY_FIELDS', '[]')))  # empty = all fields
-INITIAL_PERIOD = int(environ.get('INITIAL_PERIOD', '30'))  # 30 days
-CHECK_PERIOD = int(environ.get('CHECK_PERIOD', '7'))  # 7 days
-FETCH_INTERVAL = int(environ.get('FETCH_INTERVAL', '43200'))  # 12 hours
+
+UPDATE_LIMIT = datetime.timedelta(days=int(environ.get('UPDATE_LIMIT', '30')))
+FRESH_LIMIT = datetime.timedelta(days=int(environ.get('FRESH_LIMIT', '7')))
+UPDATE_INTERVAL = datetime.timedelta(hours=int(environ.get('FETCH_INTERVAL', '12')))
 
 CH_HOST = environ.get('CH_HOST', 'http://localhost:8123')
 CH_USER = environ.get('CH_USER')
