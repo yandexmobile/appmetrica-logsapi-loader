@@ -100,14 +100,14 @@ class Updater(object):
 
     def _get_update_data(self, df):
         escape_characters = {
-            '\b': '\\b',
-            '\r': '\\r',
-            '\f': '\\f',
+            '\b': '\\\\b',
+            '\r': '\\\\r',
+            '\f': '\\\\f',
             '\n': '\\\\n',
-            '\t': '\\t',
-            '\0': '\\0',
-            '\'': '\\\'',
-            '\\\\': '\\\\',
+            '\t': '\\\\t',
+            '\0': '\\\\0',
+            '\'': '\\\\\'',
+            '\\\\': '\\\\\\\\',
         }
         sub_df = df[self._export_fields]
         escaped = sub_df.replace(escape_characters, regex=True)
