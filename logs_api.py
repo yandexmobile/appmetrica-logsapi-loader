@@ -46,9 +46,15 @@ class LogsApiClient(object):
                 create_date = app_details['application']['create_date']
         return create_date
 
-    def load(self, api_key:str, table:str, fields:List[str],
-             date_from:datetime.date, date_to:datetime.date) -> DataFrame:
-        url = 'https://api.appmetrica.yandex.ru/logs/v1/export/{table}.csv'\
+    def _request_logs_api(self,
+                          api_key: str,
+                          table: str,
+                          fields: List[str],
+                          date_from: datetime.date,
+                          date_to: datetime.date,
+                          parts_count: int,
+                          part_number: int):
+        url = 'https://api.appmetrica.yandex.ru/logs/v1/export/{table}.csv' \
             .format(table=table)
         time_from = datetime.datetime.combine(date_from, datetime.time.min)
         time_to = datetime.datetime.combine(date_to, datetime.time.max)
@@ -61,15 +67,39 @@ class LogsApiClient(object):
             'fields': ','.join(fields),
             'oauth_token': self.token
         }
+        if parts_count > 1:
+            params.update({
+                'parts_count': parts_count,
+                'part_number': part_number,
+            })
+        return requests.get(url, params=params)
 
-        r = requests.get(url, params=params)
-        while r.status_code != 200:
+    def load(self, api_key: str, table: str, fields: List[str],
+             date_from: datetime.date, date_to: datetime.date) -> DataFrame:
+        parts_count = 1
+        sub_dfs = []
+        while len(sub_dfs) < parts_count:
+            r = self._request_logs_api(api_key=api_key, table=table,
+                                       fields=fields, date_from=date_from,
+                                       date_to=date_to,
+                                       parts_count=parts_count,
+                                       part_number=len(sub_dfs))
             logger.debug('Logs API response code: {}'.format(r.status_code))
-            if r.status_code != 202:
-                raise ValueError(r.text)
+            if r.status_code == 200:
+                sub_df = pd.read_csv(io.StringIO(r.text))
+                sub_dfs.append(sub_df)
+            else:
+                logger.debug(r.text)
+                if r.status_code == 202:
+                    time.sleep(10)
+                elif r.status_code == 429:
+                    time.sleep(60)
+                elif r.status_code == 400 \
+                        and 'Try to use more parts.' in r.text:
+                    parts_count *= 2
+                    sub_dfs = []
+                else:
+                    raise ValueError('[{}] {}'.format(r.status_code, r.text))
 
-            time.sleep(10)
-            r = requests.get(url, params=params)
-
-        df = pd.read_csv(io.StringIO(r.text))
+        df = pd.concat(sub_dfs, ignore_index=True)  # type: DataFrame
         return df
