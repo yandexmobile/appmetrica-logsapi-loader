@@ -17,7 +17,6 @@ import time
 import settings
 from db import ClickhouseDatabase
 from fields import FieldsCollection
-from fields_declaration import fields
 from logs_api import LogsApiClient
 from updater import Updater
 from state_storage import FileStateStorage, StateController
@@ -38,7 +37,7 @@ def main():
 
     api_keys = settings.API_KEYS
     source_name = settings.SOURCE_NAME
-    fields_collection = FieldsCollection(fields[source_name],
+    fields_collection = FieldsCollection(source_name,
                                          settings.FIELDS, settings.KEY_FIELDS)
     logs_api_client = LogsApiClient(settings.TOKEN)
     database = ClickhouseDatabase(settings.CH_HOST,

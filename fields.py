@@ -14,6 +14,8 @@ from typing import Callable, List, Tuple
 
 from pandas import DataFrame, Series
 
+from fields_declaration import fields
+
 
 class Field(object):
     def __init__(self, load_name: str, db_name: str, db_type: str,
@@ -28,8 +30,8 @@ class Field(object):
 
 
 class FieldsCollection(object):
-    def __init__(self, field_args, requested_fields, key_fields):
-        self._fields = [f for f in self._to_fields(field_args)
+    def __init__(self, source, requested_fields, key_fields):
+        self._fields = [f for f in self._to_fields(fields[source])
                         if f.required or f.load_name in requested_fields]
         key_fields = key_fields or []
         key_fields = [f for f in self._fields if f.load_name in key_fields]

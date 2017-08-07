@@ -42,7 +42,7 @@ def _str_to_hash(field_name: str):
 
 
 # Load_Name DB_Name, DB_Type Converter Required Generated
-_common_fileds = [
+_common_fields = [
     ("appmetrica_device_id", "DeviceID", "String", None, True, False),
     ("device_id_hash", "DeviceIDHash", "UInt64", _str_to_hash('appmetrica_device_id'), True, True),
     ("api_key", "APIKey", "UInt64", None, True, True),
@@ -63,7 +63,7 @@ _common_fileds = [
     ("app_version_name", "AppVersionName", "String", None, False, False),
     ("app_package_name", "AppPackageName", "String", None, False, False),
 ]
-_event_fields = _common_fileds + [
+_event_fields = _common_fields + [
     ("event_name", "EventName", "String", None, False, False),
     ("event_datetime", "EventDateTime", "DateTime", _timestamp_to_datetime("event_timestamp"), False, True),
     ("event_timestamp", "EventTimestamp", "UInt64", None, True, False),
@@ -72,7 +72,7 @@ _event_fields = _common_fileds + [
     ("event_receive_timestamp", "ReceiveTimestamp", "UInt64", None, False, False),
     ("event_receive_date", "ReceiveDate", "Date", _timestamp_to_date("event_receive_timestamp"), False, True),
 ]
-_crash_fields = _common_fileds + [
+_crash_fields = _common_fields + [
     ("crash", "Crash", "String", None, False, False),
     ("crash_id", "CrashID", "String", None, False, False),
     ("crash_group_id", "CrashGroupID", "String", None, False, False),
