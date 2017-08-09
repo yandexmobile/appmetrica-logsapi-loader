@@ -5,6 +5,8 @@ services:
     environment:
      - TOKEN=${TOKEN}
      - API_KEYS=${API_KEYS}
+     - SOURCE_NAME=events
+     - FIELDS=["event_name","event_timestamp","appmetrica_device_id","os_name","country_iso_code","city"]
      - CH_HOST=http://db:8123
     depends_on:
      - db

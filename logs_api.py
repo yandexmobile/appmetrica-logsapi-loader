@@ -16,7 +16,7 @@ import json
 import logging
 
 import io
-from typing import List
+from typing import List, Generator
 
 import pandas as pd
 import requests
@@ -27,8 +27,9 @@ logger = logging.getLogger(__name__)
 
 
 class LogsApiClient(object):
-    def __init__(self, token):
+    def __init__(self, token: str, chunk_size: int):
         self.token = token
+        self._chunk_size = chunk_size
 
     def app_creation_date(self, api_key: str) -> str:
         url = 'https://api.appmetrica.yandex.ru/management/v1/application' \
@@ -72,22 +73,56 @@ class LogsApiClient(object):
                 'parts_count': parts_count,
                 'part_number': part_number,
             })
-        return requests.get(url, params=params)
+        return requests.get(url, params=params, stream=True)
+
+    def _iter_line_blocks(self, response: requests.Response, chunk_size: int):
+        pending = None
+        content_it = response.iter_content(chunk_size=chunk_size,
+                                           decode_unicode=True)
+        for chunk in content_it:  # type: str
+            if pending is not None:
+                chunk = pending + chunk
+
+            if len(chunk) < chunk_size:
+                pending = chunk
+                continue
+
+            last_line_index = chunk.rfind('\n')
+            if last_line_index == -1:
+                pending = chunk
+            elif last_line_index < len(chunk) - 1:
+                yield chunk[:last_line_index + 1]
+                pending = chunk[last_line_index + 1:]
+            else:
+                yield chunk
+                pending = None
+
+        if pending is not None:
+            yield pending
 
     def load(self, api_key: str, table: str, fields: List[str],
-             date_from: datetime.date, date_to: datetime.date) -> DataFrame:
+             date_from: datetime.date, date_to: datetime.date) \
+            -> Generator[DataFrame, None, None]:
         parts_count = 1
-        sub_dfs = []
-        while len(sub_dfs) < parts_count:
+        part_number = 0
+        while part_number < parts_count:
             r = self._request_logs_api(api_key=api_key, table=table,
                                        fields=fields, date_from=date_from,
                                        date_to=date_to,
                                        parts_count=parts_count,
-                                       part_number=len(sub_dfs))
+                                       part_number=part_number)
             logger.debug('Logs API response code: {}'.format(r.status_code))
             if r.status_code == 200:
-                sub_df = pd.read_csv(io.StringIO(r.text))
-                sub_dfs.append(sub_df)
+                it = self._iter_line_blocks(response=r,
+                                            chunk_size=self._chunk_size)
+                names = None
+                for block in it:
+                    stream = io.StringIO(block)
+                    df = pd.read_csv(stream, names=names)
+                    if names is None:
+                        names = df.columns.tolist()
+                    yield df
+                part_number += 1
             else:
                 logger.debug(r.text)
                 if r.status_code == 202:
@@ -97,9 +132,6 @@ class LogsApiClient(object):
                 elif r.status_code == 400 \
                         and 'Try to use more parts.' in r.text:
                     parts_count *= 2
-                    sub_dfs = []
+                    part_number = 0
                 else:
                     raise ValueError('[{}] {}'.format(r.status_code, r.text))
-
-        df = pd.concat(sub_dfs, ignore_index=True)  # type: DataFrame
-        return df

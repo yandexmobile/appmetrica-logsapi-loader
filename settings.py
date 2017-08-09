@@ -19,6 +19,7 @@ KEY_FIELDS = set(json.loads(environ.get('KEY_FIELDS', '[]')))  # empty = all fie
 UPDATE_LIMIT = datetime.timedelta(days=int(environ.get('UPDATE_LIMIT', '30')))
 FRESH_LIMIT = datetime.timedelta(days=int(environ.get('FRESH_LIMIT', '7')))
 UPDATE_INTERVAL = datetime.timedelta(hours=int(environ.get('FETCH_INTERVAL', '12')))
+REQUEST_CHUNK_SIZE = int(environ.get('REQUEST_CHUNK_SIZE', '134217728'))  # 128 Mb
 
 CH_HOST = environ.get('CH_HOST', 'http://localhost:8123')
 CH_USER = environ.get('CH_USER')

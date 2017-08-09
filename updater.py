@@ -88,11 +88,8 @@ class Updater(object):
         )
         self._db.query(query)
 
-    def _load_data(self, api_key, date):
-        df = self._logs_api_client.load(api_key, self._source_name,
-                                        self._load_fields,
-                                        date, date)
-        df = df.drop_duplicates()
+    def _process_data(self, api_key, df):
+        df = df.drop_duplicates().copy()
         df['api_key'] = api_key
         for (name, converter) in self._filed_converters:
             df[name] = converter(df)
@@ -129,18 +126,25 @@ class Updater(object):
             logger.info('Table "{}" created'.format(self._table_name))
 
     def update(self, api_key: str, date: datetime.date):
-        df = self._load_data(api_key, date)
+        df_it = self._logs_api_client.load(api_key, self._source_name,
+                                        self._load_fields,
+                                        date, date)
+
+        for df in df_it:
+            self._db.drop_table(self._temp_table_load_name)
+            self._db.drop_table(self._temp_table_insert_name)
+
+            self._db.create_table(self._temp_table_load_name, self._engine,
+                                  self._db_fields)
+
+            insert_df = self._process_data(api_key, df)
+            self._db.insert(self._temp_table_load_name,
+                            self._get_update_data(insert_df))
+
+            self._create_tmp_table_for_insert(date, date)
+            self._insert_data_to_prod()
 
         self._db.drop_table(self._temp_table_load_name)
         self._db.drop_table(self._temp_table_insert_name)
-
-        self._db.create_table(self._temp_table_load_name, self._engine,
-                              self._db_fields)
-        self._db.insert(self._temp_table_load_name, self._get_update_data(df))
-        self._create_tmp_table_for_insert(date, date)
-        self._insert_data_to_prod()
 
         self._state_controller.mark_updated(api_key, date)
-
-        self._db.drop_table(self._temp_table_load_name)
-        self._db.drop_table(self._temp_table_insert_name)
