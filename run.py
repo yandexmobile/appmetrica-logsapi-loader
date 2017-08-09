@@ -33,19 +33,6 @@ def setup_logging(debug: bool = False) -> None:
     logging.basicConfig(format=logging_format, level=level)
 
 
-def __main():
-    setup_logging(settings.DEBUG)
-    logs_api_client = LogsApiClient(settings.TOKEN)
-    fields = ["event_name","event_timestamp","appmetrica_device_id","os_name","country_iso_code","city","event_json","device_model"]
-    gen = logs_api_client.load('185600', 'events', fields,
-                              datetime.date(2017, 7, 30),
-                              datetime.date(2017, 8, 7))
-    reader = csv.DictReader(gen)  # type: csv.DictReader
-    load_keys = reader.fieldnames
-    for row in reader:
-        print(row)
-
-
 def main():
     setup_logging(settings.DEBUG)
 
