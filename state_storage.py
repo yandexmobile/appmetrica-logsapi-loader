@@ -11,10 +11,10 @@
         https://yandex.com/legal/metrica_termsofuse/
 """
 import json
-from datetime import datetime, time, date, timedelta
 from abc import abstractmethod
+from datetime import datetime, time, timedelta
 from json import JSONDecodeError
-from typing import Dict, Optional, List, Tuple, Hashable
+from typing import Dict, Optional, List, Tuple
 
 import pandas as pd
 

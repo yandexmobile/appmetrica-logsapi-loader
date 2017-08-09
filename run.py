@@ -10,8 +10,6 @@
   You may obtain a copy of the License at:
         https://yandex.com/legal/metrica_termsofuse/
 """
-import csv
-import datetime
 import logging
 import time
 
@@ -19,8 +17,8 @@ import settings
 from db import ClickhouseDatabase
 from fields import FieldsCollection
 from logs_api import LogsApiClient
-from updater import Updater
 from state_storage import FileStateStorage, StateController
+from updater import Updater
 
 logger = logging.getLogger(__name__)
 
