@@ -54,7 +54,7 @@ def main():
     fields_collection = FieldsCollection(source_name,
                                          settings.FIELDS, settings.KEY_FIELDS)
     logs_api_client = LogsApiClient(settings.TOKEN,
-                                    settings.REQUEST_CHUNK_SIZE)
+                                    settings.REQUEST_CHUNK_ROWS)
     database = ClickhouseDatabase(settings.CH_HOST,
                                   settings.CH_USER, settings.CH_PASSWORD,
                                   settings.CH_DATABASE)

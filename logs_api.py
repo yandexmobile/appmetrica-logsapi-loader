@@ -12,15 +12,12 @@
 """
 import datetime
 import json
-
 import logging
-
-import io
+import time
 from typing import List, Generator
 
 import pandas as pd
 import requests
-import time
 from pandas import DataFrame
 
 logger = logging.getLogger(__name__)
@@ -75,30 +72,13 @@ class LogsApiClient(object):
             })
         return requests.get(url, params=params, stream=True)
 
-    def _iter_line_blocks(self, response: requests.Response, chunk_size: int):
-        pending = None
-        content_it = response.iter_content(chunk_size=chunk_size,
-                                           decode_unicode=True)
-        for chunk in content_it:  # type: str
-            if pending is not None:
-                chunk = pending + chunk
-
-            if len(chunk) < chunk_size:
-                pending = chunk
-                continue
-
-            last_line_index = chunk.rfind('\n')
-            if last_line_index == -1:
-                pending = chunk
-            elif last_line_index < len(chunk) - 1:
-                yield chunk[:last_line_index + 1]
-                pending = chunk[last_line_index + 1:]
-            else:
-                yield chunk
-                pending = None
-
-        if pending is not None:
-            yield pending
+    def _response_chunks(self, response: requests.Response):
+        compression = response.headers.get('Content-Encoding')
+        return pd.read_csv(response.raw,
+                           compression=compression,
+                           encoding=response.encoding,
+                           chunksize=self._chunk_size,
+                           iterator=True)
 
     def load(self, api_key: str, table: str, fields: List[str],
              date_from: datetime.date, date_to: datetime.date) \
@@ -113,14 +93,7 @@ class LogsApiClient(object):
                                        part_number=part_number)
             logger.debug('Logs API response code: {}'.format(r.status_code))
             if r.status_code == 200:
-                it = self._iter_line_blocks(response=r,
-                                            chunk_size=self._chunk_size)
-                names = None
-                for block in it:
-                    stream = io.StringIO(block)
-                    df = pd.read_csv(stream, names=names)
-                    if names is None:
-                        names = df.columns.tolist()
+                for df in self._response_chunks(r):
                     yield df
                 part_number += 1
             else:
