@@ -97,7 +97,7 @@ class Updater(object):
     def _process_data(self, api_key, df):
         df = df.drop_duplicates().copy()
         df['api_key'] = api_key
-        for (name, converter) in self._filed_converters:
+        for name, converter in self._filed_converters:
             df[name] = converter(df)
         return df
 
@@ -118,7 +118,7 @@ class Updater(object):
         return tsv
 
     def _upload_data_frame(self, df: DataFrame,
-                          api_key: str, date: datetime.date):
+                           api_key: str, date: datetime.date):
         self._cleanup()
         self._db.create_table(self._temp_table_load_name, self._engine,
                               self._db_fields)
