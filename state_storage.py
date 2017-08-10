@@ -12,7 +12,7 @@
 """
 import json
 from abc import abstractmethod
-from datetime import datetime, time, timedelta
+from datetime import datetime, date, time, timedelta
 from json import JSONDecodeError
 from typing import Dict, Optional, List, Tuple
 
@@ -73,7 +73,7 @@ class StateController(object):
         self._state.db_scheme = db_scheme
         self.save()
 
-    def mark_updated(self, api_key: str, date: datetime.date,
+    def mark_updated(self, api_key: str, date: date,
                      now: datetime = None):
         date_str = date.strftime('%Y-%m-%d')
         ts = (now or datetime.utcnow()).timestamp()
@@ -106,7 +106,7 @@ class StateController(object):
                         update_interval: timedelta,
                         update_limit: timedelta,
                         fresh_limit: timedelta) \
-            -> List[Tuple[str, datetime.date]]:
+            -> List[Tuple[str, date]]:
         now = datetime.today()
         result = []
         for api_key in api_keys:

@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-  logs-api.py
+  updater.py
 
   This file is a part of the AppMetrica.
 
@@ -12,6 +12,8 @@
 """
 import datetime
 import logging
+
+from pandas import DataFrame
 
 from db import Database
 from fields import FieldsCollection
@@ -74,6 +76,10 @@ class Updater(object):
         )
         self._db.query(query)
 
+    def _cleanup(self):
+        self._db.drop_table(self._temp_table_load_name)
+        self._db.drop_table(self._temp_table_insert_name)
+
     def _insert_data_to_prod(self):
         query = '''
             INSERT INTO {db}.{to_table}
@@ -111,6 +117,19 @@ class Updater(object):
         tsv = escaped.to_csv(index=False, sep='\t')
         return tsv
 
+    def _upload_data_frame(self, df: DataFrame,
+                          api_key: str, date: datetime.date):
+        self._cleanup()
+        self._db.create_table(self._temp_table_load_name, self._engine,
+                              self._db_fields)
+
+        insert_df = self._process_data(api_key, df)
+        self._db.insert(self._temp_table_load_name,
+                        self._get_update_data(insert_df))
+
+        self._create_tmp_table_for_insert(date, date)
+        self._insert_data_to_prod()
+
     def prepare(self):
         if not self._db.database_exists():
             self._db.create_database()
@@ -127,24 +146,10 @@ class Updater(object):
 
     def update(self, api_key: str, date: datetime.date):
         df_it = self._logs_api_client.load(api_key, self._source_name,
-                                        self._load_fields,
-                                        date, date)
+                                           self._load_fields,
+                                           date, date)
 
         for df in df_it:
-            self._db.drop_table(self._temp_table_load_name)
-            self._db.drop_table(self._temp_table_insert_name)
-
-            self._db.create_table(self._temp_table_load_name, self._engine,
-                                  self._db_fields)
-
-            insert_df = self._process_data(api_key, df)
-            self._db.insert(self._temp_table_load_name,
-                            self._get_update_data(insert_df))
-
-            self._create_tmp_table_for_insert(date, date)
-            self._insert_data_to_prod()
-
-        self._db.drop_table(self._temp_table_load_name)
-        self._db.drop_table(self._temp_table_insert_name)
-
+            self._upload_data_frame(df, api_key, date)
+        self._cleanup()
         self._state_controller.mark_updated(api_key, date)
