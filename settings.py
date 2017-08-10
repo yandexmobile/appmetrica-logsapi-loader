@@ -29,7 +29,7 @@ KEY_FIELDS = set(json.loads(environ.get('KEY_FIELDS', environ['FIELDS'])))
 
 UPDATE_LIMIT = timedelta(days=int(environ.get('UPDATE_LIMIT', '30')))
 FRESH_LIMIT = timedelta(days=int(environ.get('FRESH_LIMIT', '7')))
-UPDATE_INTERVAL = timedelta(hours=int(environ.get('FETCH_INTERVAL', '12')))
+UPDATE_INTERVAL = timedelta(hours=int(environ.get('UPDATE_INTERVAL', '12')))
 REQUEST_CHUNK_ROWS = int(environ.get('REQUEST_CHUNK_ROWS', '1000'))
 
 STATE_FILE_PATH = environ.get('STATE_FILE_PATH', join(dirname(__file__), 'state.json'))
