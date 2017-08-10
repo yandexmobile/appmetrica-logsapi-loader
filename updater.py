@@ -18,7 +18,7 @@ from pandas import DataFrame
 from db import Database
 from fields import FieldsCollection
 from logs_api import LogsApiClient
-from state_storage import StateController
+from state import StateController
 
 logger = logging.getLogger(__name__)
 

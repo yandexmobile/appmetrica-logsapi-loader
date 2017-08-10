@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-  state_storage.py
+  controller.py
 
   This file is a part of the AppMetrica.
 
@@ -10,49 +10,13 @@
   You may obtain a copy of the License at:
         https://yandex.com/legal/metrica_termsofuse/
 """
-import json
-from abc import abstractmethod
 from datetime import datetime, date, time, timedelta
-from json import JSONDecodeError
-from typing import Dict, Optional, List, Tuple
+from typing import Optional, List, Tuple
 
 import pandas as pd
 
-
-class State(object):
-    def __init__(self):
-        self.db_scheme = None  # type: Optional[str]
-        self.last_update_time = None  # type: Optional[float]
-        self.date_update_time = dict()  # type: Dict[str, Dict[str, float]]
-
-
-class StateStorage(object):
-    @abstractmethod
-    def load(self) -> State:
-        pass
-
-    @abstractmethod
-    def save(self, state: State):
-        pass
-
-
-class FileStateStorage(StateStorage):
-    def __init__(self, file_name):
-        self.file_name = file_name
-
-    def load(self) -> State:
-        try:
-            state = State()
-            state.__dict__.update(json.load(open(self.file_name, 'r')))
-            return state
-        except FileNotFoundError:
-            return State()
-        except JSONDecodeError:
-            return State()
-
-    def save(self, state: State):
-        json.dump(state.__dict__, open(self.file_name, 'w'),
-                  indent=4, sort_keys=True)
+from .state import State
+from .storage import StateStorage
 
 
 class StateController(object):

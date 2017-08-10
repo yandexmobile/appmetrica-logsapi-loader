@@ -17,7 +17,7 @@ import settings
 from db import ClickhouseDatabase
 from fields import FieldsCollection
 from logs_api import LogsApiClient
-from state_storage import FileStateStorage, StateController
+from state import FileStateStorage, StateController
 from updater import Updater
 
 logger = logging.getLogger(__name__)
