@@ -10,7 +10,7 @@
   You may obtain a copy of the License at:
         https://yandex.com/legal/metrica_termsofuse/
 """
-import datetime
+from datetime import timedelta
 import json
 from os import environ
 from os.path import join, dirname
@@ -25,12 +25,16 @@ TOKEN = environ['TOKEN']
 API_KEYS = json.loads(environ['API_KEYS'])
 SOURCE_NAME = environ['SOURCE_NAME']
 FIELDS = json.loads(environ['FIELDS'])
-KEY_FIELDS = set(json.loads(environ.get('KEY_FIELDS', '[]')))  # empty = all fields
+KEY_FIELDS = set(json.loads(environ.get('KEY_FIELDS', environ['FIELDS'])))
 
-UPDATE_LIMIT = datetime.timedelta(days=int(environ.get('UPDATE_LIMIT', '30')))
-FRESH_LIMIT = datetime.timedelta(days=int(environ.get('FRESH_LIMIT', '7')))
-UPDATE_INTERVAL = datetime.timedelta(hours=int(environ.get('FETCH_INTERVAL', '12')))
+UPDATE_LIMIT = timedelta(days=int(environ.get('UPDATE_LIMIT', '30')))
+FRESH_LIMIT = timedelta(days=int(environ.get('FRESH_LIMIT', '7')))
+UPDATE_INTERVAL = timedelta(hours=int(environ.get('FETCH_INTERVAL', '12')))
 REQUEST_CHUNK_ROWS = int(environ.get('REQUEST_CHUNK_ROWS', '1000'))
+
+STATE_FILE_PATH = environ.get('STATE_FILE_PATH', join(dirname(__file__), 'state.json'))
+
+LOGS_API_HOST = environ.get('LOGS_API_HOST', 'https://api.appmetrica.yandex.ru')
 
 CH_HOST = environ.get('CH_HOST', 'http://localhost:8123')
 CH_USER = environ.get('CH_USER')

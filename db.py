@@ -78,9 +78,9 @@ class ClickhouseDatabase(Database):
         return auth
 
     def _query_clickhouse(self, query_text: str, **params):
-        log_data = query_text.replace('\n', ' ')
+        log_data = query_text
         if len(log_data) > self.QUERY_LOG_LIMIT:
-            log_data = log_data[:self.QUERY_LOG_LIMIT] + '[...]'
+            log_data = log_data[:self.QUERY_LOG_LIMIT].replace('\n', ' ') + '[...]'
         logger.debug('Query ClickHouse: {} >>> {}'.format(params, log_data))
         auth = self._get_clickhouse_auth()
         r = requests.post(self.url, data=query_text, params=params, auth=auth)

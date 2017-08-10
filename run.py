@@ -16,7 +16,7 @@ import time
 import settings
 from db import ClickhouseDatabase
 from fields import FieldsCollection
-from logs_api import LogsApiClient
+from logs_api import LogsApiClient, Loader
 from state import FileStateStorage, StateController
 from updater import Updater
 
@@ -38,14 +38,14 @@ def main():
     source_name = settings.SOURCE_NAME
     fields_collection = FieldsCollection(source_name,
                                          settings.FIELDS, settings.KEY_FIELDS)
-    logs_api_client = LogsApiClient(settings.TOKEN,
-                                    settings.REQUEST_CHUNK_ROWS)
+    logs_api_client = LogsApiClient(settings.TOKEN, settings.LOGS_API_HOST)
+    logs_api_loader = Loader(logs_api_client, settings.REQUEST_CHUNK_ROWS)
     database = ClickhouseDatabase(settings.CH_HOST,
                                   settings.CH_USER, settings.CH_PASSWORD,
                                   settings.CH_DATABASE)
-    state_storage = FileStateStorage('state.json')
+    state_storage = FileStateStorage(settings.STATE_FILE_PATH)
     state_controller = StateController(state_storage)
-    updater = Updater(logs_api_client, database, fields_collection,
+    updater = Updater(logs_api_loader, database, fields_collection,
                       state_controller, source_name, settings.CH_TABLE)
 
     logger.info("Starting updater loop")

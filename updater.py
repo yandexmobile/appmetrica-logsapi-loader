@@ -17,7 +17,7 @@ from pandas import DataFrame
 
 from db import Database
 from fields import FieldsCollection
-from logs_api import LogsApiClient
+from logs_api import Loader
 from state import StateController
 
 logger = logging.getLogger(__name__)
@@ -25,13 +25,13 @@ logger = logging.getLogger(__name__)
 
 class Updater(object):
     def __init__(self,
-                 logs_api_client: LogsApiClient,
+                 loader: Loader,
                  db: Database,
                  fields_collection: FieldsCollection,
                  state_controller: StateController,
                  source_name: str,
                  table_name: str):
-        self._logs_api_client = logs_api_client
+        self._loader = loader
         self._db = db
         self._table_name = table_name
         self._state_controller = state_controller
@@ -145,10 +145,8 @@ class Updater(object):
             logger.info('Table "{}" created'.format(self._table_name))
 
     def update(self, api_key: str, date: datetime.date):
-        df_it = self._logs_api_client.load(api_key, self._source_name,
-                                           self._load_fields,
-                                           date, date)
-
+        df_it = self._loader.load(api_key, self._source_name,
+                                  self._load_fields, date)
         for df in df_it:
             self._upload_data_frame(df, api_key, date)
         self._cleanup()
