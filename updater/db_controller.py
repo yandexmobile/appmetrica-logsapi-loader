@@ -20,15 +20,17 @@ from fields import FieldsCollection
 from state import StateController
 
 logger = logging.getLogger(__name__)
+
+# TODO: Allow customizing
 _escape_characters = {
-    '\b': '\\\\b',
-    '\r': '\\\\r',
-    '\f': '\\\\f',
+    # '\b': '\\\\b',
+    # '\r': '\\\\r',
+    # '\f': '\\\\f',
     '\n': '\\\\n',
     '\t': '\\\\t',
-    '\0': '\\\\0',
-    '\'': '\\\\\'',
-    '\\\\': '\\\\\\\\',
+    # '\0': '\\\\0',
+    # '\'': '\\\\\'',
+    # '\\\\': '\\\\\\\\',
 }
 
 
