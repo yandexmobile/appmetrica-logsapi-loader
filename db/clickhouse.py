@@ -10,6 +10,7 @@
   You may obtain a copy of the License at:
         https://yandex.com/legal/metrica_termsofuse/
 """
+import datetime
 import logging
 from typing import Tuple, List
 
@@ -18,6 +19,7 @@ import requests
 from .db import Database
 
 logger = logging.getLogger(__name__)
+
 
 class ClickhouseDatabase(Database):
     QUERY_LOG_LIMIT = 200
@@ -37,7 +39,8 @@ class ClickhouseDatabase(Database):
     def _query_clickhouse(self, query_text: str, **params):
         log_data = query_text
         if len(log_data) > self.QUERY_LOG_LIMIT:
-            log_data = log_data[:self.QUERY_LOG_LIMIT].replace('\n', ' ') + '[...]'
+            log_data = log_data[:self.QUERY_LOG_LIMIT].replace('\n',
+                                                               ' ') + '[...]'
         logger.debug('Query ClickHouse: {} >>> {}'.format(params, log_data))
         auth = self._get_clickhouse_auth()
         r = requests.post(self.url, data=query_text, params=params, auth=auth)
@@ -78,22 +81,79 @@ class ClickhouseDatabase(Database):
         )
         self._query_clickhouse(query)
 
-    def create_table(self, table_name: str, engine: str,
-                     fields: List[Tuple[str, str]]):
+    def create_table(self, table_name: str, fields: List[Tuple[str, str]],
+                     date_field: str, sampling_field: str):
         fields_string = ','.join(('{} {}'.format(f, f_type)
                                   for (f, f_type) in fields))
-        q = 'CREATE TABLE {db}.{table} ({fields}) ENGINE = {engine}'.format(
+        q = '''
+            CREATE TABLE {db}.{table} ({fields})
+            ENGINE = MergeTree({date_field}, 
+                cityHash64({sampling_field}), 
+                ({date_field}, cityHash64({sampling_field})), 
+                8192)
+        '''.format(
             db=self.db_name,
             table=table_name,
             fields=fields_string,
-            engine=engine
+            date_field=date_field,
+            sampling_field=sampling_field
         )
         self._query_clickhouse(q)
 
     def query(self, query_text: str):
         self._query_clickhouse(query_text)
 
-    def insert(self, table_name: str, tsv_content: str):
+    def _create_table_like(self, source_table: str, new_table: str):
+        query = self._query_clickhouse('SHOW CREATE TABLE {db}.{table}'.format(
+            db=self.db_name,
+            table=source_table
+        ))  # type:str
+        if query:
+            new_query = query.replace(
+                'CREATE TABLE {}.{}'.format(self.db_name, source_table),
+                'CREATE TABLE {}.{}'.format(self.db_name, new_table)
+            )
+            self.query(new_query)
+
+    def _insert(self, table_name: str, tsv_content: str):
         query = 'INSERT INTO {db}.{table} FORMAT TabSeparatedWithNames' \
             .format(db=self.db_name, table=table_name)
         return self._query_clickhouse(tsv_content, query=query)
+
+    def _copy_data_distinct(self, source_table: str, target_table: str,
+                            key_fields_list: str, date_field: str,
+                            start_date: datetime.date,
+                            end_date: datetime.date):
+        query = '''
+            INSERT INTO {db}.{to_table} 
+                SELECT *
+                FROM {db}.{from_table}
+                WHERE NOT (
+                    ({key_fields_list}) GLOBAL IN (
+                        SELECT {key_fields_list} 
+                        FROM {db}.{to_table} 
+                        WHERE {date_field} >= '{start}' 
+                            AND {date_field} <= '{end}'
+                    )
+                )
+        '''.format(
+            db=self.db_name,
+            from_table=source_table,
+            to_table=target_table,
+            key_fields_list=key_fields_list,
+            date_field=date_field,
+            start=start_date.strftime('%Y-%m-%d'),
+            end=end_date.strftime('%Y-%m-%d'),
+        )
+        self.query(query)
+
+    def insert_distinct(self, table_name: str, tsv_content: str,
+                        key_fields_list: str,
+                        date_field: str, start_date: datetime.date,
+                        end_date: datetime.date, temp_table_name: str):
+        self.drop_table(temp_table_name)
+        self._create_table_like(table_name, temp_table_name)
+        self._insert(temp_table_name, tsv_content)
+        self._copy_data_distinct(temp_table_name, table_name, key_fields_list,
+                                 date_field, start_date, end_date)
+        pass
