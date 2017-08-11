@@ -121,7 +121,7 @@ class ClickhouseDatabase(Database):
         return self._query_clickhouse(tsv_content, query=query)
 
     def _copy_data_distinct(self, source_table: str, target_table: str,
-                            key_fields_list: str, date_field: str,
+                            key_fields_list: List[str], date_field: str,
                             start_date: datetime.date,
                             end_date: datetime.date):
         query = '''
@@ -140,7 +140,7 @@ class ClickhouseDatabase(Database):
             db=self.db_name,
             from_table=source_table,
             to_table=target_table,
-            key_fields_list=key_fields_list,
+            key_fields_list=', '.join(key_fields_list),
             date_field=date_field,
             start=start_date.strftime('%Y-%m-%d'),
             end=end_date.strftime('%Y-%m-%d'),
@@ -148,7 +148,7 @@ class ClickhouseDatabase(Database):
         self.query(query)
 
     def insert_distinct(self, table_name: str, tsv_content: str,
-                        key_fields_list: str,
+                        key_fields_list: List[str],
                         date_field: str, start_date: datetime.date,
                         end_date: datetime.date, temp_table_name: str):
         self.drop_table(temp_table_name)

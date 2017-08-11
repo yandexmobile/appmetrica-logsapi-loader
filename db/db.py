@@ -57,7 +57,7 @@ class Database(object):
 
     @abstractmethod
     def insert_distinct(self, table_name: str, tsv_content: str,
-                        key_fields_list: str,
+                        key_fields_list: List[str],
                         date_field: str, start_date: datetime.date,
                         end_date: datetime.date, temp_table_name: str):
         pass

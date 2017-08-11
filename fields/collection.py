@@ -20,6 +20,7 @@ from .declaration import fields
 
 class FieldsCollection(object):
     def __init__(self, source, requested_fields, key_fields):
+        self.source = source
         self._fields = [f for f in fields[source]
                         if f.required or f.load_name in requested_fields]
         key_fields = key_fields or []
@@ -30,6 +31,9 @@ class FieldsCollection(object):
 
     def get_load_fields(self) -> List[str]:
         return [f.load_name for f in self._fields if not f.generated]
+
+    def get_field_types(self) -> List[Tuple[str, str]]:
+        return [(f.load_name, f.db_type) for f in self._fields]
 
     def get_db_fields(self) -> List[Tuple[str, str]]:
         return [(f.db_name, f.db_type) for f in self._fields]
