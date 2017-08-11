@@ -67,7 +67,7 @@ class Loader(object):
             raise ValueError('[{}] {}'.format(r.status_code, r.text))
         return parts_count, part_number, progress
 
-    def load(self, api_key: str, table: str, fields: List[str],
+    def load(self, app_id: str, table: str, fields: List[str],
              date: datetime.date) \
             -> Generator[DataFrame, None, None]:
         parts_count = 1
@@ -75,7 +75,7 @@ class Loader(object):
         progress = None
         while part_number < parts_count:
             try:
-                r = self.client.logs_api_export(api_key=api_key, table=table,
+                r = self.client.logs_api_export(app_id=app_id, table=table,
                                                 fields=fields,
                                                 date_from=date,
                                                 date_to=date,

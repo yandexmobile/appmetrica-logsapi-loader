@@ -31,10 +31,10 @@ class LogsApiClient(object):
         self.token = token
         self.host = host
 
-    def app_creation_date(self, api_key: str) -> str:
-        url = '{host}/management/v1/application/{api_key}'.format(
+    def app_creation_date(self, app_id: str) -> str:
+        url = '{host}/management/v1/application/{app_id}'.format(
             host=self.host,
-            api_key=api_key
+            app_id=app_id
         )
         params = {
             'oauth_token': self.token
@@ -52,7 +52,7 @@ class LogsApiClient(object):
             pass
         return create_date
 
-    def logs_api_export(self, api_key: str, table: str, fields: List[str],
+    def logs_api_export(self, app_id: str, table: str, fields: List[str],
                         date_from: datetime.date, date_to: datetime.date,
                         parts_count: int, part_number: int):
         url = '{host}/logs/v1/export/{table}.csv'.format(
@@ -63,7 +63,7 @@ class LogsApiClient(object):
         time_to = datetime.datetime.combine(date_to, datetime.time.max)
         date_format = '%Y-%m-%d %H:%M:%S'
         params = {
-            'application_id': api_key,
+            'application_id': app_id,
             'date_since': time_from.strftime(date_format),
             'date_until': time_to.strftime(date_format),
             'date_dimension': 'default',

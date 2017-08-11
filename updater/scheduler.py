@@ -23,13 +23,13 @@ logger = logging.getLogger(__name__)
 
 class Scheduler(object):
     def __init__(self, state_controller: StateController, updater: Updater,
-                 api_keys: List[str],
+                 app_ids: List[str],
                  update_interval: datetime.timedelta,
                  update_limit: datetime.timedelta,
                  fresh_limit: datetime.timedelta):
         self._state_controller = state_controller
         self._updater = updater
-        self._api_keys = api_keys
+        self._app_ids = app_ids
         self._update_interval = update_interval
         self._update_limit = update_limit
         self._fresh_limit = fresh_limit
@@ -41,18 +41,18 @@ class Scheduler(object):
             time.sleep(wait_time.total_seconds())
 
     def _update_dates(self, dates_to_update: List[Tuple[str, datetime.date]]):
-        for (api_key, date) in dates_to_update:
-            logger.info('Loading "{date}" for "{api_key}"'.format(
+        for (app_id, date) in dates_to_update:
+            logger.info('Loading "{date}" for "{app_id}"'.format(
                 date=date,
-                api_key=api_key
+                app_id=app_id
             ))
-            self._updater.update(api_key, date)
-            self._state_controller.mark_updated(api_key, date)
+            self._updater.update(app_id, date)
+            self._state_controller.mark_updated(app_id, date)
 
     def _step(self):
         self._wait_if_needed()
         dates_to_update = self._state_controller.dates_to_update(
-            api_keys=self._api_keys,
+            app_ids=self._app_ids,
             update_interval=self._update_interval,
             update_limit=self._update_limit,
             fresh_limit=self._fresh_limit

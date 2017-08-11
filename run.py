@@ -50,7 +50,7 @@ def main():
                                  fields_collection)
     updater = Updater(logs_api_loader, db_controller, fields_collection)
     scheduler = Scheduler(state_controller, updater,
-                          settings.API_KEYS,
+                          settings.APP_IDS,
                           settings.UPDATE_INTERVAL,
                           settings.UPDATE_LIMIT,
                           settings.FRESH_LIMIT)

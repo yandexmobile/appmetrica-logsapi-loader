@@ -37,13 +37,13 @@ class StateController(object):
         self._state.db_scheme = db_scheme
         self.save()
 
-    def mark_updated(self, api_key: str, date: date,
+    def mark_updated(self, app_id: str, date: date,
                      now: datetime = None):
         date_str = date.strftime('%Y-%m-%d')
         ts = (now or datetime.utcnow()).timestamp()
-        api_key_states = self._state.date_update_time.get(api_key, dict())
-        api_key_states[date_str] = ts
-        self._state.date_update_time[api_key] = api_key_states
+        app_id_states = self._state.date_update_time.get(app_id, dict())
+        app_id_states[date_str] = ts
+        self._state.date_update_time[app_id] = app_id_states
         self.save()
 
     def finish_updates(self, now: datetime = None):
@@ -66,21 +66,21 @@ class StateController(object):
     def is_first_update(self):
         return self._state.last_update_time is None
 
-    def dates_to_update(self, api_keys: List[str],
+    def dates_to_update(self, app_ids: List[str],
                         update_interval: timedelta,
                         update_limit: timedelta,
                         fresh_limit: timedelta) \
             -> List[Tuple[str, date]]:
         now = datetime.today()
         result = []
-        for api_key in api_keys:
-            api_key_states = self._state.date_update_time.get(api_key, dict())
+        for app_id in app_ids:
+            app_id_states = self._state.date_update_time.get(app_id, dict())
             date_to = now.date()
             date_from = date_to - update_limit
             for pd_date in pd.date_range(date_from, date_to):
                 date = pd_date.to_pydatetime().date()  # type: date
                 date_str = date.strftime('%Y-%m-%d')
-                updated_at_ts = api_key_states.get(date_str)
+                updated_at_ts = app_id_states.get(date_str)
                 if updated_at_ts:
                     updated_at = datetime.fromtimestamp(updated_at_ts)
                     last_event_date = datetime.combine(date, time.max)
@@ -88,5 +88,5 @@ class StateController(object):
                     fresh = updated_at - last_event_date < fresh_limit
                     if updated or not fresh:
                         continue
-                result.append((api_key, date))
+                result.append((app_id, date))
         return result

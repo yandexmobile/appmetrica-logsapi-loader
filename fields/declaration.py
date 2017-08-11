@@ -17,7 +17,7 @@ from .db_types import *
 from .converters import *
 
 _common_fields = [
-    system_defined("api_key", db_uint64("APIKey")),
+    system_defined("app_id", db_uint64("AppID")),
 
     required("appmetrica_device_id", db_string("DeviceID")),
     required("device_id_hash", db_uint64("DeviceIDHash"), str_to_hash('appmetrica_device_id')),
