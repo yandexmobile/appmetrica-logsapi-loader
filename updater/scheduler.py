@@ -77,6 +77,6 @@ class Scheduler(object):
                 logger.info('Interrupted. Saving state...')
                 self._state_controller.save()
                 return
-            # except Exception as e:
-            #     logger.warning(e)
-            #     time.sleep(10)
+            except Exception as e:
+                logger.warning(e)
+                time.sleep(10)
