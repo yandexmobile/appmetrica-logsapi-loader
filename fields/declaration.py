@@ -15,13 +15,14 @@ from typing import List
 from .helpers import *
 from .db_types import *
 from .converters import *
+from .source import Source
 
-_common_fields = [
+
+_system_defined_fields = [
     system_defined("app_id", db_uint64("AppID")),
+]  # type: List[Field]
 
-    required("appmetrica_device_id", db_string("DeviceID")),
-    required("device_id_hash", db_uint64("DeviceIDHash"), str_to_hash('appmetrica_device_id')),
-
+_device_fields = [
     optional("ios_ifa", db_string("IFA")),
     optional("ios_ifv", db_string("IFV")),
     optional("google_aid", db_string("GoogleAID")),
@@ -31,15 +32,93 @@ _common_fields = [
     optional("device_manufacturer", db_string("Manufacturer")),
     optional("device_model", db_string("Model")),
     optional("device_type", db_string("DeviceType")),
-    optional("device_locale", db_string("Locale")),
     optional("country_iso_code", db_string("Country")),
     optional("city", db_string("City")),
+]  # type: List[Field]
 
+_sdk_device_fields = _device_fields + [
+    required("appmetrica_device_id", db_string("DeviceID")),
+    required("device_id_hash", db_uint64("DeviceIDHash"), str_to_hash('appmetrica_device_id')),
+
+    optional("device_locale", db_string("Locale")),
+    optional("connection_type", db_string("ConnectionType")),
+    optional("operator_name", db_string("OperatorName")),
+    optional("mcc", db_string("MCC")),
+    optional("mnc", db_string("MNC")),
+    optional("device_ipv6", db_string("DeviceIPV6")),
+]  # type: List[Field]
+
+_app_fields = [
     optional("app_version_name", db_string("AppVersionName")),
     optional("app_package_name", db_string("AppPackageName")),
 ]  # type: List[Field]
 
-_event_fields = _common_fields + [
+
+_click_fields = _system_defined_fields + _device_fields + [
+    optional("publisher_id", db_string("PublisherID")),
+    optional("tracking_id", db_string("TrackingID")),
+    optional("publisher_name", db_string("PublisherName")),
+    optional("tracker_name", db_string("TrackerName")),
+
+    required("click_timestamp", db_uint64("ClickTimestamp")),
+
+    required("click_date", db_date("ClickDate"), timestamp_to_date("click_timestamp")),
+    optional("click_datetime", db_date("ClickDateTime"), timestamp_to_datetime("click_timestamp")),
+    optional("click_ipv6", db_string("ClickIPV6")),
+    optional("click_url_parameters", db_string("ClickURLParameters")),
+    optional("click_id", db_string("ClickID")),
+    optional("click_user_agent", db_string("ClickUserAgent")),
+]  # type: List[Field]
+_click_keys = [
+    "publisher_id",
+    "tracking_id",
+]
+_clicks_source = Source("clicks", "mobile_clicks_all", "click_date", "click_ipv6",
+                        _click_keys, _click_fields)
+
+
+_core_installation_fields = [
+    optional("match_type", db_string("MatchType")),
+    required("install_timestamp", db_uint64("InstallTimestamp")),
+    optional("install_datetime", db_datetime("InstallDateTime"), timestamp_to_datetime("install_timestamp")),
+    optional("install_ipv6", db_string("InstallIPV6")),
+]
+_installation_fields = _click_fields + _sdk_device_fields + _app_fields + _core_installation_fields + [
+    required("install_date", db_date("InstallDate"), timestamp_to_date("install_timestamp")),
+    optional("install_receive_timestamp", db_uint64("ReceiveTimestamp")),
+    optional("is_reinstallation", db_bool("IsReinstallation")),
+]  # type: List[Field]
+_installation_keys = _click_keys + [
+    "match_type",
+]
+_installations_source = Source("installations", "mobile_installations_all", "install_date", "install_ipv6",
+                               _installation_keys, _installation_fields)
+
+
+_postback_fields = _click_fields + _core_installation_fields + _device_fields + _app_fields + [
+    optional("event_name", db_string("EventName")),
+    optional("conversion_timestamp", db_uint64("ConversionTimestamp")),
+    optional("conversion_datetime", db_datetime("ConversionDateTime"), timestamp_to_datetime("conversion_timestamp")),
+    optional("postback_type", db_string("PostbackType")),
+    optional("postback_url", db_string("PostbackUrl")),
+    optional("postback_url_parameters", db_string("PostbackUrlParameters")),
+    optional("notifying_status", db_string("NotifyingStatus")),
+    optional("response_code", db_int16("ResponseCode")),
+    optional("response_body", db_string("ReponseBody")),
+
+    required("attempt_timestamp", db_uint64("AttemptTimestamp")),
+    required("attempt_date", db_date("AttemptDate"), timestamp_to_date("attempt_timestamp")),
+    optional("attempt_datetime", db_datetime("AttemptDateTime"), timestamp_to_datetime("attempt_timestamp")),
+]  # type: List[Field]
+_postback_key = [
+    "postback_type",
+    "response_code",
+]
+_postbacks_source = Source("postbacks", "mobile_postbacks_all", "attempt_date", None,
+                           _postback_key, _postback_fields)
+
+
+_event_fields = _system_defined_fields + _sdk_device_fields + _app_fields + [
     required("event_timestamp", db_uint64("EventTimestamp")),
 
     optional("event_name", db_string("EventName")),
@@ -49,24 +128,97 @@ _event_fields = _common_fields + [
     required("event_date", db_date("EventDate"), timestamp_to_date("event_timestamp")),
     optional("event_datetime", db_datetime("EventDateTime"), timestamp_to_datetime("event_timestamp")),
     optional("event_receive_date", db_date("ReceiveDate"), timestamp_to_date("event_receive_timestamp")),
-    optional("event_receive_datetime", db_date("ReceiveDateTime"), timestamp_to_datetime("event_receive_timestamp")),
+    optional("event_receive_datetime", db_datetime("ReceiveDateTime"), timestamp_to_datetime("event_receive_timestamp")),
 ]  # type: List[Field]
+_event_key = [
+    "event_name",
+    "device_id_hash",
+]
+_events_source = Source("events", "mobile_events_all", "event_date", "appmetrica_device_id",
+                        _event_key, _event_fields)
 
-_crash_fields = _common_fields + [
-    required("crash_timestamp", db_uint64("EventTimestamp")),
+
+_push_token_fields = _sdk_device_fields + _app_fields + [
+    optional("token", db_string("Token")),
+    required("token_timestamp", db_uint64("TokenTimestamp")),
+    required("token_date", db_date("TokenDate"), timestamp_to_date("token_timestamp")),
+    optional("token_datetime", db_datetime("TokenDateTime"), timestamp_to_datetime("token_timestamp")),
+    optional("token_receive_timestamp", db_uint64("ReceiveTimestamp")),
+    optional("token_receive_date", db_date("ReceiveDate"), timestamp_to_date("token_receive_timestamp")),
+    optional("token_receive_datetime", db_datetime("ReceiveDateTime"), timestamp_to_datetime("token_receive_timestamp")),
+]  # type: List[Field]
+_push_token_key = [
+    "device_id_hash",
+]
+_push_tokens_source = Source("push_tokens", "mobile_push_tokens_all", "token_date", "appmetrica_device_id",
+                             _push_token_key, _push_token_fields)
+
+
+_crash_fields = _system_defined_fields + _sdk_device_fields + _app_fields + [
+    required("crash_timestamp", db_uint64("CrashTimestamp")),
     required("crash_receive_timestamp", db_uint64("ReceiveTimestamp")),
 
     optional("crash", db_string("Crash")),
     optional("crash_id", db_string("CrashID")),
     optional("crash_group_id", db_string("CrashGroupID")),
 
-    required("crash_date", db_date("EventDate"), timestamp_to_date("crash_timestamp")),
-    optional("crash_datetime", db_datetime("EventDateTime"), timestamp_to_datetime("crash_timestamp")),
+    required("crash_date", db_date("CrashDate"), timestamp_to_date("crash_timestamp")),
+    optional("crash_datetime", db_datetime("CrashDateTime"), timestamp_to_datetime("crash_timestamp")),
     optional("crash_receive_date", db_date("ReceiveDate"), timestamp_to_date("crash_receive_timestamp")),
-    optional("crash_receive_datetime", db_date("ReceiveDateTime"), timestamp_to_datetime("crash_receive_timestamp")),
+    optional("crash_receive_datetime", db_datetime("ReceiveDateTime"), timestamp_to_datetime("crash_receive_timestamp")),
 ]  # type: List[Field]
+_crash_key = [
+    "crash_id",
+    "crash_group_id",
+    "device_id_hash",
+]
+_crashes_source = Source("crashes", "mobile_crashes_all", "crash_date", "appmetrica_device_id",
+                         _crash_key, _event_fields)
 
-fields = {
-    'events': _event_fields,
-    'crashes': _crash_fields,
-}
+
+_error_fields = _system_defined_fields + _sdk_device_fields + _app_fields + [
+    required("error_timestamp", db_uint64("ErrorTimestamp")),
+
+    optional("error", db_string("Error")),
+    optional("error_id", db_string("ErrorID")),
+    optional("error_receive_timestamp", db_uint64("ReceiveTimestamp")),
+
+    required("error_date", db_date("ErrorDate"), timestamp_to_date("error_timestamp")),
+    optional("error_datetime", db_datetime("ErrorDateTime"), timestamp_to_datetime("error_timestamp")),
+    optional("error_receive_date", db_date("ReceiveDate"), timestamp_to_date("error_receive_timestamp")),
+    optional("error_receive_datetime", db_datetime("ReceiveDateTime"), timestamp_to_datetime("error_receive_timestamp")),
+]  # type: List[Field]
+_error_key = [
+    "event_name",
+    "device_id_hash",
+]
+_errors_source = Source("errors", "mobile_errors_all", "error_date", "appmetrica_device_id",
+                        _error_key, _error_fields)
+
+
+_sessions_start_fields = _system_defined_fields + _sdk_device_fields + _app_fields + [
+    required("session_start_timestamp", db_uint64("SessionStartTimestamp")),
+    optional("session_start_receive_timestamp", db_uint64("ReceiveTimestamp")),
+
+    required("session_start_date", db_date("SessionStartDate"), timestamp_to_date("session_start_timestamp")),
+    optional("session_start_datetime", db_datetime("SessionStartDateTime"), timestamp_to_datetime("session_start_timestamp")),
+    optional("session_start_receive_date", db_date("ReceiveDate"), timestamp_to_date("session_start_receive_timestamp")),
+    optional("session_start_receive_datetime", db_datetime("ReceiveDateTime"), timestamp_to_datetime("session_start_receive_timestamp")),
+]  # type: List[Field]
+_sessions_start_key = [
+    "device_id_hash",
+]
+_sessions_starts_source = Source("sessions_starts", "mobile_sessions_starts_all", "event_date", "appmetrica_device_id",
+                                 _sessions_start_key, _sessions_start_fields)
+
+
+sources = [
+    _clicks_source,
+    _installations_source,
+    _postbacks_source,
+    _events_source,
+    _push_tokens_source,
+    _crashes_source,
+    _errors_source,
+    _sessions_starts_source
+]
