@@ -34,4 +34,4 @@ def db_datetime(db_name: str) -> Tuple[str, str]:
 
 
 def db_bool(db_name: str) -> Tuple[str, str]:
-    return db_name, 'Boolean'
+    return db_name, 'UInt8'

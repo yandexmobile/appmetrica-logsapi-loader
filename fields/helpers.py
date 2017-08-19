@@ -36,18 +36,24 @@ def system_defined(load_name: str, db: Tuple[str, str]) -> Field:
 
 
 def required(load_name: str, db: Tuple[str, str],
-             converter: Callable[[DataFrame], Series] = None) -> Field:
+             converter: Callable[[DataFrame], Series] = None,
+             generated: Optional[bool] = None) -> Field:
+    if generated is None:
+        generated = converter is not None
     return field(load_name=load_name,
                  db=db,
                  required=True,
-                 generated=converter is not None,
+                 generated=generated,
                  converter=converter)
 
 
 def optional(load_name: str, db: Tuple[str, str],
-             converter: Callable[[DataFrame], Series] = None) -> Field:
+             converter: Callable[[DataFrame], Series] = None,
+             generated: Optional[bool] = None) -> Field:
+    if generated is None:
+        generated = converter is not None
     return field(load_name=load_name,
                  db=db,
                  required=False,
-                 generated=converter is not None,
+                 generated=generated,
                  converter=converter)

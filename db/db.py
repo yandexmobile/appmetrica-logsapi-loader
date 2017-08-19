@@ -48,7 +48,14 @@ class Database(object):
 
     @abstractmethod
     def create_table(self, table_name: str, fields: List[Tuple[str, str]],
-                     date_field: str, sampling_field: str):
+                     date_field: str, sampling_field: str,
+                     primary_key_fields: List[str]):
+        pass
+
+    @abstractmethod
+    def is_valid_scheme(self, table_name: str, fields: List[Tuple[str, str]],
+                     date_field: str, sampling_field: str,
+                     primary_key_fields: List[str]) -> bool:
         pass
 
     @abstractmethod
@@ -57,7 +64,7 @@ class Database(object):
 
     @abstractmethod
     def insert_distinct(self, table_name: str, tsv_content: str,
-                        key_fields_list: List[str],
+                        unique_fields: List[str],
                         date_field: str, start_date: datetime.date,
                         end_date: datetime.date, temp_table_name: str):
         pass

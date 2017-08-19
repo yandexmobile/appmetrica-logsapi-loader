@@ -10,40 +10,74 @@
   You may obtain a copy of the License at:
         https://yandex.com/legal/metrica_termsofuse/
 """
-from typing import Callable, List, Tuple
+from typing import List, Tuple, Optional
 
-from pandas import DataFrame, Series
+from .declaration import sources
+from .field import Converter, Field
+from .source import Source
 
-from .field import Converter
-from .declaration import fields
+
+class LoadingDefinition(object):
+    def __init__(self, source: Source):
+        self.source_name = source.load_name
+        self.fields = []
+        for field in source.fields:
+            field_name = field.load_name
+            if not field.generated:
+                self.fields.append(field_name)
 
 
-class FieldsCollection(object):
-    def __init__(self, source, requested_fields, key_fields):
-        self.source = source
-        self._fields = [f for f in fields[source]
-                        if f.required or f.load_name in requested_fields]
-        key_fields = key_fields or []
-        key_fields = [f for f in self._fields if f.load_name in key_fields]
-        if len(key_fields) == 0:
-            key_fields = self._fields
-        self._key_fields = key_fields
+class DbTableDefinition(object):
+    def __init__(self, source: Source):
+        self.table_name = source.db_name
+        self.primary_keys = []
+        self.unique_keys = []
+        self.column_types = dict()
+        self.field_types = dict()
+        self.export_fields = []
+        self.sampling_field = None
+        for field in source.fields:
+            field_name = field.load_name
+            if field_name == source.date_field_name:
+                self.date_field = field.db_name
+            if field_name == source.sampling_field_name:
+                self.sampling_field = field.db_name
+            if field_name in source.key_field_names:
+                self.primary_keys.append(field.db_name)
+            if field_name not in source.unification_ignored_field_names:
+                self.unique_keys.append(field.db_name)
+            self.field_types[field.db_name] = field.db_type
+            self.column_types[field_name] = field.db_type
+            self.export_fields.append(field_name)
 
-    def get_load_fields(self) -> List[str]:
-        return [f.load_name for f in self._fields if not f.generated]
 
-    def get_field_types(self) -> List[Tuple[str, str]]:
-        return [(f.load_name, f.db_type) for f in self._fields]
+class ProcessingDefinition(object):
+    def __init__(self, source: Source):
+        self.field_converters = dict()
+        self.field_types = dict()
+        for field in source.fields:
+            field_name = field.load_name
+            if field.converter:
+                self.field_converters[field_name] = field.converter
+            self.field_types[field_name] = field.db_type
 
-    def get_db_fields(self) -> List[Tuple[str, str]]:
-        return [(f.db_name, f.db_type) for f in self._fields]
 
-    def get_db_keys(self) -> List[str]:
-        return [f.db_name for f in self._key_fields]
+class SourcesCollection(object):
+    def __init__(self):
+        self._source_names = []
+        self._sources = dict()
+        for source in sources:
+            self._source_names.append(source.load_name)
+            self._sources[source.load_name] = source
 
-    def get_export_keys_list(self) -> List[str]:
-        return [f.load_name for f in self._fields]
+    def source_names(self):
+        return self._source_names
 
-    def get_converters(self) -> List[Tuple[str, Converter]]:
-        return [(f.load_name, f.converter) for f in self._fields
-                if f.converter]
+    def loading_definition(self, source_name):
+        return LoadingDefinition(self._sources[source_name])
+
+    def processing_definition(self, source_name):
+        return ProcessingDefinition(self._sources[source_name])
+
+    def db_table_definition(self, source_name):
+        return DbTableDefinition(self._sources[source_name])

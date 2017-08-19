@@ -19,6 +19,7 @@ from typing import List, Generator, Tuple
 import pandas as pd
 import requests
 from pandas import DataFrame
+from urllib3.exceptions import ProtocolError
 
 from .client import LogsApiClient, LogsApiError
 
@@ -57,14 +58,14 @@ class Loader(object):
             logger.info('Too many requests. Waiting...')
             time.sleep(60)
         elif status_code == 400 \
-                and 'Try to use more parts.' in r.text:
+                and 'Try to use more parts.' in text:
             parts_count *= 2
             part_number = 0
             logger.info('Request is too big. Parts count: {}'.format(
                 parts_count
             ))
         else:
-            raise ValueError('[{}] {}'.format(r.status_code, r.text))
+            raise ValueError('[{}] {}'.format(status_code, text))
         return parts_count, part_number, progress
 
     def load(self, app_id: str, table: str, fields: List[str],
@@ -95,3 +96,6 @@ class Loader(object):
                 parts_count, part_number, progress = \
                     self._process_error(e.status_code, e.text, parts_count,
                                         part_number, progress)
+            except ProtocolError as e:
+                logger.warning(e)
+                continue

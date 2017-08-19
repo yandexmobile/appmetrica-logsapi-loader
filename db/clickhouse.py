@@ -14,6 +14,7 @@ import datetime
 import logging
 from typing import Tuple, List
 
+import re
 import requests
 
 from .db import Database
@@ -81,24 +82,54 @@ class ClickhouseDatabase(Database):
         )
         self._query_clickhouse(query)
 
+    def _table_engine(self, date_field: str, sampling_field: str,
+                       primary_key_fields: List[str]):
+        primary_keys = [date_field] + primary_key_fields
+        merge_tree_args = [date_field]
+        if sampling_field:
+            sampling_expression = 'cityHash64({})'.format(sampling_field)
+            primary_keys.append(sampling_expression)
+            merge_tree_args.append(sampling_expression)
+        primary_keys_expression = '({})'.format(', '.join(primary_keys))
+        merge_tree_args += [primary_keys_expression, '8192']
+        engine = 'MergeTree({merge_tree_args})'.format(
+            merge_tree_args=', '.join(merge_tree_args)
+        )
+        return engine
+
     def create_table(self, table_name: str, fields: List[Tuple[str, str]],
-                     date_field: str, sampling_field: str):
+                     date_field: str, sampling_field: str,
+                     primary_key_fields: List[str]):
         fields_string = ','.join(('{} {}'.format(f, f_type)
                                   for (f, f_type) in fields))
+        engine = self._table_engine(date_field, sampling_field,
+                                    primary_key_fields)
         q = '''
             CREATE TABLE {db}.{table} ({fields})
-            ENGINE = MergeTree({date_field}, 
-                cityHash64({sampling_field}), 
-                ({date_field}, cityHash64({sampling_field})), 
-                8192)
+            ENGINE = {engine}
         '''.format(
             db=self.db_name,
             table=table_name,
             fields=fields_string,
-            date_field=date_field,
-            sampling_field=sampling_field
+            engine=engine
         )
         self._query_clickhouse(q)
+
+    def is_valid_scheme(self, table_name: str, fields: List[Tuple[str, str]],
+                        date_field: str, sampling_field: str,
+                        primary_key_fields: List[str]) -> bool:
+        scheme_query = 'SHOW CREATE TABLE {db}.{table}'.format(
+            db=self.db_name,
+            table=table_name
+        )
+        curr_scheme = self._query_clickhouse(scheme_query)  # type:str
+        engine = self._table_engine(date_field, sampling_field,
+                                    primary_key_fields)
+        fields_re = re.compile('\s*,\s*'.join(('{}\s*{}'.format(f, f_type)
+                                               for (f, f_type) in fields)))
+        # TODO: check engine?
+        match = fields_re.search(curr_scheme)
+        return match is not None
 
     def query(self, query_text: str):
         self._query_clickhouse(query_text)
@@ -121,7 +152,7 @@ class ClickhouseDatabase(Database):
         return self._query_clickhouse(tsv_content, query=query)
 
     def _copy_data_distinct(self, source_table: str, target_table: str,
-                            key_fields_list: List[str], date_field: str,
+                            unique_fields: List[str], date_field: str,
                             start_date: datetime.date,
                             end_date: datetime.date):
         query = '''
@@ -129,8 +160,8 @@ class ClickhouseDatabase(Database):
                 SELECT *
                 FROM {db}.{from_table}
                 WHERE NOT (
-                    ({key_fields_list}) GLOBAL IN (
-                        SELECT {key_fields_list} 
+                    ({unique_fields}) GLOBAL IN (
+                        SELECT {unique_fields} 
                         FROM {db}.{to_table} 
                         WHERE {date_field} >= '{start}' 
                             AND {date_field} <= '{end}'
@@ -140,7 +171,7 @@ class ClickhouseDatabase(Database):
             db=self.db_name,
             from_table=source_table,
             to_table=target_table,
-            key_fields_list=', '.join(key_fields_list),
+            unique_fields=', '.join(unique_fields),
             date_field=date_field,
             start=start_date.strftime('%Y-%m-%d'),
             end=end_date.strftime('%Y-%m-%d'),
@@ -148,12 +179,12 @@ class ClickhouseDatabase(Database):
         self.query(query)
 
     def insert_distinct(self, table_name: str, tsv_content: str,
-                        key_fields_list: List[str],
+                        unique_fields: List[str],
                         date_field: str, start_date: datetime.date,
                         end_date: datetime.date, temp_table_name: str):
         self.drop_table(temp_table_name)
         self._create_table_like(table_name, temp_table_name)
         self._insert(temp_table_name, tsv_content)
-        self._copy_data_distinct(temp_table_name, table_name, key_fields_list,
+        self._copy_data_distinct(temp_table_name, table_name, unique_fields,
                                  date_field, start_date, end_date)
         pass

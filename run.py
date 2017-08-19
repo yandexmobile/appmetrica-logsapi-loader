@@ -14,7 +14,7 @@ import logging
 
 import settings
 from db import ClickhouseDatabase
-from fields import FieldsCollection
+from fields import SourcesCollection
 from logs_api import LogsApiClient, Loader
 from state import FileStateStorage, StateController
 from updater import Updater, DbController, Scheduler
@@ -33,8 +33,7 @@ def setup_logging(debug: bool = False) -> None:
 def main():
     setup_logging(settings.DEBUG)
 
-    fields_collection = FieldsCollection(settings.SOURCE_NAME,
-                                         settings.FIELDS, settings.KEY_FIELDS)
+    sources_collection = SourcesCollection()
 
     logs_api_client = LogsApiClient(settings.TOKEN, settings.LOGS_API_HOST)
     logs_api_loader = Loader(logs_api_client, settings.REQUEST_CHUNK_ROWS)
@@ -46,16 +45,14 @@ def main():
     state_storage = FileStateStorage(settings.STATE_FILE_PATH)
     state_controller = StateController(state_storage)
 
-    db_controller = DbController(database, settings.CH_TABLE,
-                                 fields_collection)
-    updater = Updater(logs_api_loader, db_controller, fields_collection)
+    updater = Updater(logs_api_loader, sources_collection, database)
     scheduler = Scheduler(state_controller, updater,
                           settings.APP_IDS,
+                          sources_collection.source_names(),
                           settings.UPDATE_INTERVAL,
                           settings.UPDATE_LIMIT,
                           settings.FRESH_LIMIT)
 
-    db_controller.prepare(state_controller)
     scheduler.run()
 
 

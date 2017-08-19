@@ -18,10 +18,13 @@ from .field import Field
 class Source(object):
     def __init__(self, load_name: str, db_name: str, date_field_name:str,
                  sampling_field_name: Optional[str],
-                 key_field_names: List[str], fields: List[Field]):
+                 key_field_names: List[str],
+                 unification_ignored_field_names: List[str],
+                 fields: List[Field]):
         self.load_name = load_name
         self.db_name = db_name
         self.date_field_name = date_field_name
         self.sampling_field_name = sampling_field_name
         self.key_field_names = key_field_names
-        self.fields = fields
+        self.unification_ignored_field_names = unification_ignored_field_names
+        self.fields = sorted(fields, key=lambda f: f.load_name)

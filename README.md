@@ -39,9 +39,6 @@ All configuration properties can be passed through environment variables.
 #### Main variables
 * `TOKEN` - *(required)* Logs API OAuth token.
 * `APP_IDS` - *(required)* JSON-array of numeric AppMetrica app identifiers.
-* `SOURCE_NAME` - *(required)* Logs API endpoint to download from. Supported values: `events`, `crashes`.
-* `FIELDS` - *(required)* List of fields to download. See [LogsAPI endpoints][LOGSAPI-ENDPOINTS] and `fields/declaration.py` file for more information.
-* `KEY_FIELDS` - List of fields for deduplication. All fields are used by default.
 
 #### ClickHouse related
 * `CH_HOST` - Host of ClickHouse DB to store events. (default: `http://localhost:8123`)

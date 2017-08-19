@@ -9,10 +9,12 @@
   You may obtain a copy of the License at:
         https://yandex.com/legal/metrica_termsofuse/
 """
-from .collection import FieldsCollection
+from .collection import SourcesCollection, DbTableDefinition, \
+    ProcessingDefinition, LoadingDefinition
 from .field import Field, Converter
 
 __all__ = (
-    "FieldsCollection",
+    "SourcesCollection",
+    "DbTableDefinition", "ProcessingDefinition", "LoadingDefinition"
     "Field", "Converter",
 )

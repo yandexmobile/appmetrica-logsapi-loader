@@ -32,11 +32,14 @@ _device_fields = [
     optional("device_manufacturer", db_string("Manufacturer")),
     optional("device_model", db_string("Model")),
     optional("device_type", db_string("DeviceType")),
+]  # type: List[Field]
+
+_located_device_fields = _device_fields + [
     optional("country_iso_code", db_string("Country")),
     optional("city", db_string("City")),
 ]  # type: List[Field]
 
-_sdk_device_fields = _device_fields + [
+_sdk_device_fields = _located_device_fields + [
     required("appmetrica_device_id", db_string("DeviceID")),
     required("device_id_hash", db_uint64("DeviceIDHash"), str_to_hash('appmetrica_device_id')),
 
@@ -45,7 +48,6 @@ _sdk_device_fields = _device_fields + [
     optional("operator_name", db_string("OperatorName")),
     optional("mcc", db_string("MCC")),
     optional("mnc", db_string("MNC")),
-    optional("device_ipv6", db_string("DeviceIPV6")),
 ]  # type: List[Field]
 
 _app_fields = [
@@ -54,7 +56,7 @@ _app_fields = [
 ]  # type: List[Field]
 
 
-_click_fields = _system_defined_fields + _device_fields + [
+_core_click_fields = [
     optional("publisher_id", db_string("PublisherID")),
     optional("tracking_id", db_string("TrackingID")),
     optional("publisher_name", db_string("PublisherName")),
@@ -63,18 +65,21 @@ _click_fields = _system_defined_fields + _device_fields + [
     required("click_timestamp", db_uint64("ClickTimestamp")),
 
     required("click_date", db_date("ClickDate"), timestamp_to_date("click_timestamp")),
-    optional("click_datetime", db_date("ClickDateTime"), timestamp_to_datetime("click_timestamp")),
+    optional("click_datetime", db_datetime("ClickDateTime"), timestamp_to_datetime("click_timestamp")),
     optional("click_ipv6", db_string("ClickIPV6")),
     optional("click_url_parameters", db_string("ClickURLParameters")),
     optional("click_id", db_string("ClickID")),
     optional("click_user_agent", db_string("ClickUserAgent")),
 ]  # type: List[Field]
+_click_fields = _system_defined_fields + _device_fields + _core_click_fields
 _click_keys = [
     "publisher_id",
     "tracking_id",
 ]
-_clicks_source = Source("clicks", "mobile_clicks_all", "click_date", "click_ipv6",
-                        _click_keys, _click_fields)
+_clicks_unification_ignores = [
+]
+_clicks_source = Source("clicks", "clicks_all", "click_date", "click_ipv6",
+                        _click_keys, _clicks_unification_ignores, _click_fields)
 
 
 _core_installation_fields = [
@@ -83,23 +88,25 @@ _core_installation_fields = [
     optional("install_datetime", db_datetime("InstallDateTime"), timestamp_to_datetime("install_timestamp")),
     optional("install_ipv6", db_string("InstallIPV6")),
 ]
-_installation_fields = _click_fields + _sdk_device_fields + _app_fields + _core_installation_fields + [
+_installation_fields = _core_click_fields + _located_device_fields + _app_fields + _core_installation_fields + [
     required("install_date", db_date("InstallDate"), timestamp_to_date("install_timestamp")),
     optional("install_receive_timestamp", db_uint64("ReceiveTimestamp")),
-    optional("is_reinstallation", db_bool("IsReinstallation")),
+    optional("is_reinstallation", db_bool("IsReinstallation"), str_to_bool('is_reinstallation'), False),
 ]  # type: List[Field]
 _installation_keys = _click_keys + [
     "match_type",
 ]
-_installations_source = Source("installations", "mobile_installations_all", "install_date", "install_ipv6",
-                               _installation_keys, _installation_fields)
+_installation_unification_ignores = [
+]
+_installations_source = Source("installations", "installations_all", "install_date", "install_ipv6",
+                               _installation_keys, _installation_unification_ignores, _installation_fields)
 
 
-_postback_fields = _click_fields + _core_installation_fields + _device_fields + _app_fields + [
+_postback_fields = _core_click_fields + _core_installation_fields + _device_fields + _app_fields + [
     optional("event_name", db_string("EventName")),
     optional("conversion_timestamp", db_uint64("ConversionTimestamp")),
     optional("conversion_datetime", db_datetime("ConversionDateTime"), timestamp_to_datetime("conversion_timestamp")),
-    optional("postback_type", db_string("PostbackType")),
+    optional("cost_model", db_string("CostModel")),
     optional("postback_url", db_string("PostbackUrl")),
     optional("postback_url_parameters", db_string("PostbackUrlParameters")),
     optional("notifying_status", db_string("NotifyingStatus")),
@@ -114,8 +121,11 @@ _postback_key = [
     "postback_type",
     "response_code",
 ]
-_postbacks_source = Source("postbacks", "mobile_postbacks_all", "attempt_date", None,
-                           _postback_key, _postback_fields)
+_postbacks_unification_ignores = [
+    "response_body",
+]
+_postbacks_source = Source("postbacks", "postbacks_all", "attempt_date", None,
+                           _postback_key, _postbacks_unification_ignores, _postback_fields)
 
 
 _event_fields = _system_defined_fields + _sdk_device_fields + _app_fields + [
@@ -134,8 +144,10 @@ _event_key = [
     "event_name",
     "device_id_hash",
 ]
-_events_source = Source("events", "mobile_events_all", "event_date", "appmetrica_device_id",
-                        _event_key, _event_fields)
+_events_unification_ignores = [
+]
+_events_source = Source("events", "events_all", "event_date", "appmetrica_device_id",
+                        _event_key, _events_unification_ignores, _event_fields)
 
 
 _push_token_fields = _sdk_device_fields + _app_fields + [
@@ -150,8 +162,10 @@ _push_token_fields = _sdk_device_fields + _app_fields + [
 _push_token_key = [
     "device_id_hash",
 ]
-_push_tokens_source = Source("push_tokens", "mobile_push_tokens_all", "token_date", "appmetrica_device_id",
-                             _push_token_key, _push_token_fields)
+_push_tokens_unification_ignores = [
+]
+_push_tokens_source = Source("push_tokens", "push_tokens_all", "token_date", "appmetrica_device_id",
+                             _push_token_key, _push_tokens_unification_ignores, _push_token_fields)
 
 
 _crash_fields = _system_defined_fields + _sdk_device_fields + _app_fields + [
@@ -172,8 +186,11 @@ _crash_key = [
     "crash_group_id",
     "device_id_hash",
 ]
-_crashes_source = Source("crashes", "mobile_crashes_all", "crash_date", "appmetrica_device_id",
-                         _crash_key, _event_fields)
+_crashes_unification_ignores = [
+    "crash",
+]
+_crashes_source = Source("crashes", "crashes_all", "crash_date", "appmetrica_device_id",
+                         _crash_key, _crashes_unification_ignores, _crash_fields)
 
 
 _error_fields = _system_defined_fields + _sdk_device_fields + _app_fields + [
@@ -192,8 +209,11 @@ _error_key = [
     "event_name",
     "device_id_hash",
 ]
-_errors_source = Source("errors", "mobile_errors_all", "error_date", "appmetrica_device_id",
-                        _error_key, _error_fields)
+_errors_unification_ignores = [
+    "error",
+]
+_errors_source = Source("errors", "errors_all", "error_date", "appmetrica_device_id",
+                        _error_key, _errors_unification_ignores, _error_fields)
 
 
 _sessions_start_fields = _system_defined_fields + _sdk_device_fields + _app_fields + [
@@ -208,8 +228,10 @@ _sessions_start_fields = _system_defined_fields + _sdk_device_fields + _app_fiel
 _sessions_start_key = [
     "device_id_hash",
 ]
-_sessions_starts_source = Source("sessions_starts", "mobile_sessions_starts_all", "event_date", "appmetrica_device_id",
-                                 _sessions_start_key, _sessions_start_fields)
+_sessions_starts_unification_ignores = [
+]
+_sessions_starts_source = Source("sessions_starts", "sessions_starts_all", "session_start_date", "appmetrica_device_id",
+                                 _sessions_start_key, _sessions_starts_unification_ignores, _sessions_start_fields)
 
 
 sources = [

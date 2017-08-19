@@ -27,16 +27,6 @@ class StateController(object):
     def save(self):
         self._state_storage.save(self._state)
 
-    def is_valid_scheme(self, db_scheme: str):
-        return self._state.db_scheme == db_scheme
-
-    def update_db_scheme(self, db_scheme: str):
-        if self.is_valid_scheme(db_scheme):
-            return
-        self._state = State()
-        self._state.db_scheme = db_scheme
-        self.save()
-
     def mark_updated(self, app_id: str, date: date,
                      now: datetime = None):
         date_str = date.strftime('%Y-%m-%d')
@@ -66,7 +56,7 @@ class StateController(object):
     def is_first_update(self):
         return self._state.last_update_time is None
 
-    def dates_to_update(self, app_ids: List[str],
+    def dates_to_update(self, app_ids: List[str], source_names: List[str],
                         update_interval: timedelta,
                         update_limit: timedelta,
                         fresh_limit: timedelta) \
