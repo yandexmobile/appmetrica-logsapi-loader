@@ -17,7 +17,7 @@ from db import ClickhouseDatabase
 from fields import SourcesCollection
 from logs_api import LogsApiClient, Loader
 from state import FileStateStorage, StateController
-from updater import Updater, DbController, Scheduler
+from updater import Updater, Scheduler
 
 logger = logging.getLogger(__name__)
 
@@ -31,28 +31,45 @@ def setup_logging(debug: bool = False) -> None:
 
 
 def main():
-    setup_logging(settings.DEBUG)
+    setup_logging(debug=settings.DEBUG)
 
-    sources_collection = SourcesCollection()
-
-    logs_api_client = LogsApiClient(settings.TOKEN, settings.LOGS_API_HOST)
-    logs_api_loader = Loader(logs_api_client, settings.REQUEST_CHUNK_ROWS)
-
-    database = ClickhouseDatabase(settings.CH_HOST,
-                                  settings.CH_USER, settings.CH_PASSWORD,
-                                  settings.CH_DATABASE)
-
-    state_storage = FileStateStorage(settings.STATE_FILE_PATH)
-    state_controller = StateController(state_storage)
-
-    updater = Updater(logs_api_loader, sources_collection, database)
-    scheduler = Scheduler(state_controller, updater,
-                          settings.APP_IDS,
-                          sources_collection.source_names(),
-                          settings.UPDATE_INTERVAL,
-                          settings.UPDATE_LIMIT,
-                          settings.FRESH_LIMIT)
-
+    sources_collection = SourcesCollection(
+        requested_sources=settings.SOURCES
+    )
+    logs_api_client = LogsApiClient(
+        token=settings.TOKEN,
+        host=settings.LOGS_API_HOST
+    )
+    logs_api_loader = Loader(
+        client=logs_api_client,
+        chunk_size=settings.REQUEST_CHUNK_ROWS
+    )
+    database = ClickhouseDatabase(
+        url=settings.CH_HOST,
+        login=settings.CH_USER,
+        password=settings.CH_PASSWORD,
+        db_name=settings.CH_DATABASE
+    )
+    state_storage = FileStateStorage(
+        file_name=settings.STATE_FILE_PATH
+    )
+    state_controller = StateController(
+        state_storage=state_storage
+    )
+    updater = Updater(
+        loader=logs_api_loader,
+        sources_collection=sources_collection,
+        db=database
+    )
+    scheduler = Scheduler(
+        state_controller=state_controller,
+        updater=updater,
+        app_ids=settings.APP_IDS,
+        source_names=sources_collection.source_names(),
+        update_interval=settings.UPDATE_INTERVAL,
+        update_limit=settings.UPDATE_LIMIT,
+        fresh_limit=settings.FRESH_LIMIT
+    )
     scheduler.run()
 
 

@@ -63,12 +63,14 @@ class ProcessingDefinition(object):
 
 
 class SourcesCollection(object):
-    def __init__(self):
+    def __init__(self, requested_sources: List[str]):
         self._source_names = []
         self._sources = dict()
         for source in sources:
-            self._source_names.append(source.load_name)
-            self._sources[source.load_name] = source
+            source_name = source.load_name
+            if len(requested_sources) == 0 or source_name in requested_sources:
+                self._source_names.append(source_name)
+                self._sources[source_name] = source
 
     def source_names(self):
         return self._source_names

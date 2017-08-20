@@ -23,6 +23,7 @@ DEBUG = environ.get('DEBUG', '0') == '1'
 
 TOKEN = environ['TOKEN']
 APP_IDS = json.loads(environ['APP_IDS'])
+SOURCES = json.loads(environ.get('SOURCES', '[]'))  # empty == all
 
 UPDATE_LIMIT = timedelta(days=int(environ.get('UPDATE_LIMIT', '30')))
 FRESH_LIMIT = timedelta(days=int(environ.get('FRESH_LIMIT', '7')))
