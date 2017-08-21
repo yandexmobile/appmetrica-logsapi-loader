@@ -51,7 +51,7 @@ class Updater(object):
     @staticmethod
     def _append_system_fields(df: DataFrame, app_id: str) -> DataFrame:
         df['app_id'] = app_id
-        df['load_datetime'] = int(datetime.datetime.utcnow().timestamp())
+        df['load_datetime'] = int(datetime.datetime.now().timestamp())
         return df
 
     @staticmethod
