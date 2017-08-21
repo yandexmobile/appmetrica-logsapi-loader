@@ -20,6 +20,7 @@ from .source import Source
 
 _system_defined_fields = [
     system_defined("app_id", db_uint64("AppID")),
+    system_defined("load_datetime", db_datetime("LoadDateTime")),
 ]  # type: List[Field]
 
 _device_fields = [
@@ -55,6 +56,10 @@ _app_fields = [
     optional("app_package_name", db_string("AppPackageName")),
 ]  # type: List[Field]
 
+_common_ignored_fields = [
+    "load_datetime",
+]
+
 
 _core_click_fields = [
     optional("publisher_id", db_string("PublisherID")),
@@ -76,7 +81,7 @@ _click_keys = [
     "publisher_id",
     "tracking_id",
 ]
-_clicks_unification_ignores = [
+_clicks_unification_ignores = _common_ignored_fields + [
 ]
 _clicks_source = Source("clicks", "clicks_all", "click_date", "click_ipv6",
                         _click_keys, _clicks_unification_ignores, _click_fields)
@@ -96,7 +101,7 @@ _installation_fields = _core_click_fields + _located_device_fields + _app_fields
 _installation_keys = _click_keys + [
     "match_type",
 ]
-_installation_unification_ignores = [
+_installation_unification_ignores = _common_ignored_fields + [
 ]
 _installations_source = Source("installations", "installations_all", "install_date", "install_ipv6",
                                _installation_keys, _installation_unification_ignores, _installation_fields)
@@ -121,7 +126,7 @@ _postback_key = [
     "postback_type",
     "response_code",
 ]
-_postbacks_unification_ignores = [
+_postbacks_unification_ignores = _common_ignored_fields + [
     "response_body",
 ]
 _postbacks_source = Source("postbacks", "postbacks_all", "attempt_date", None,
@@ -144,7 +149,7 @@ _event_key = [
     "event_name",
     "device_id_hash",
 ]
-_events_unification_ignores = [
+_events_unification_ignores = _common_ignored_fields + [
 ]
 _events_source = Source("events", "events_all", "event_date", "appmetrica_device_id",
                         _event_key, _events_unification_ignores, _event_fields)
@@ -162,7 +167,7 @@ _push_token_fields = _sdk_device_fields + _app_fields + [
 _push_token_key = [
     "device_id_hash",
 ]
-_push_tokens_unification_ignores = [
+_push_tokens_unification_ignores = _common_ignored_fields + [
 ]
 _push_tokens_source = Source("push_tokens", "push_tokens_all", "token_date", "appmetrica_device_id",
                              _push_token_key, _push_tokens_unification_ignores, _push_token_fields)
@@ -186,7 +191,7 @@ _crash_key = [
     "crash_group_id",
     "device_id_hash",
 ]
-_crashes_unification_ignores = [
+_crashes_unification_ignores = _common_ignored_fields + [
     "crash",
 ]
 _crashes_source = Source("crashes", "crashes_all", "crash_date", "appmetrica_device_id",
@@ -209,7 +214,7 @@ _error_key = [
     "event_name",
     "device_id_hash",
 ]
-_errors_unification_ignores = [
+_errors_unification_ignores = _common_ignored_fields + [
     "error",
 ]
 _errors_source = Source("errors", "errors_all", "error_date", "appmetrica_device_id",
@@ -228,7 +233,7 @@ _sessions_start_fields = _system_defined_fields + _sdk_device_fields + _app_fiel
 _sessions_start_key = [
     "device_id_hash",
 ]
-_sessions_starts_unification_ignores = [
+_sessions_starts_unification_ignores = _common_ignored_fields + [
 ]
 _sessions_starts_source = Source("sessions_starts", "sessions_starts_all", "session_start_date", "appmetrica_device_id",
                                  _sessions_start_key, _sessions_starts_unification_ignores, _sessions_start_fields)
