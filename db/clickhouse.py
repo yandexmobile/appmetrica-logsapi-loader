@@ -152,39 +152,29 @@ class ClickhouseDatabase(Database):
         return self._query_clickhouse(tsv_content, query=query)
 
     def _copy_data_distinct(self, source_table: str, target_table: str,
-                            unique_fields: List[str], date_field: str,
-                            start_date: datetime.date,
-                            end_date: datetime.date):
+                            unique_fields: List[str]):
         query = '''
             INSERT INTO {db}.{to_table} 
                 SELECT *
-                FROM {db}.{from_table}
+                FROM {db}.{from_table} AS ins
                 WHERE NOT (
                     ({unique_fields}) GLOBAL IN (
                         SELECT {unique_fields} 
-                        FROM {db}.{to_table} 
-                        WHERE {date_field} >= '{start}' 
-                            AND {date_field} <= '{end}'
+                        FROM {db}.{to_table}
                     )
                 )
         '''.format(
             db=self.db_name,
             from_table=source_table,
             to_table=target_table,
-            unique_fields=', '.join(unique_fields),
-            date_field=date_field,
-            start=start_date.strftime('%Y-%m-%d'),
-            end=end_date.strftime('%Y-%m-%d'),
+            unique_fields=', '.join(unique_fields)
         )
         self.query(query)
 
     def insert_distinct(self, table_name: str, tsv_content: str,
-                        unique_fields: List[str],
-                        date_field: str, start_date: datetime.date,
-                        end_date: datetime.date, temp_table_name: str):
+                        unique_fields: List[str], temp_table_name: str):
         self.drop_table(temp_table_name)
         self._create_table_like(table_name, temp_table_name)
         self._insert(temp_table_name, tsv_content)
-        self._copy_data_distinct(temp_table_name, table_name, unique_fields,
-                                 date_field, start_date, end_date)
+        self._copy_data_distinct(temp_table_name, table_name, unique_fields)
         pass

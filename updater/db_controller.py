@@ -113,7 +113,7 @@ class DbController(object):
         logger.debug("Exporting data to csv")
         return df.to_csv(index=False, sep='\t')
 
-    def insert_data(self, df: DataFrame, date: datetime.date):
+    def insert_data(self, df: DataFrame):
         df = self._fetch_export_fields(df)
         df = self._escape_data(df)  # TODO: Works too slow
         tsv = self._export_data_to_tsv(df)
@@ -121,9 +121,6 @@ class DbController(object):
             table_name=self.table_name,
             tsv_content=tsv,
             unique_fields=self._definition.unique_keys,
-            date_field=self.date_field,
-            start_date=date,
-            end_date=date,
             temp_table_name=self.temp_table_name
         )
 

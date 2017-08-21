@@ -97,5 +97,5 @@ class Updater(object):
         for df in df_it:
             logger.debug("Start processing data chunk")
             upload_df = self._process_data(app_id, df, processing_definition)
-            db_controller.insert_data(upload_df, date)
+            db_controller.insert_data(upload_df)
         db_controller.cleanup()
