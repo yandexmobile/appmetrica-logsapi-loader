@@ -44,17 +44,6 @@ def timestamp_to_datetime(field_name: str):
     return converter  # type: Converter
 
 
-def str_to_hash(field_name: str):
-    def converter(df: DataFrame) -> Series:
-        def to_hash(s):
-            return abs(hash(s))
-
-        col = df[field_name]  # type: Series
-        return col.apply(to_hash)
-
-    return converter  # type: Converter
-
-
 def str_to_bool(field_name: str):
     def converter(df: DataFrame) -> Series:
         col = df[field_name]  # type: Series

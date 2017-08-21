@@ -42,7 +42,6 @@ _located_device_fields = _device_fields + [
 
 _sdk_device_fields = _located_device_fields + [
     required("appmetrica_device_id", db_string("DeviceID")),
-    required("device_id_hash", db_uint64("DeviceIDHash"), str_to_hash('appmetrica_device_id')),
 
     optional("device_locale", db_string("Locale")),
     optional("connection_type", db_string("ConnectionType")),
