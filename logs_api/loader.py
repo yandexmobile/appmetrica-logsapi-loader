@@ -43,10 +43,11 @@ class Loader(object):
                            iterator=True)
 
     def _process_error(self, status_code: int, text: str, parts_count: int,
-                       part_number: int, progress: int) \
-            -> Tuple[int, int, int]:
+                       part_number: int, progress: int, first_request: bool) \
+            -> Tuple[int, int, int, bool]:
         logger.debug(text)
         if status_code == 202:
+            first_request = False
             progress_match = self._progress_re.match(text)
             if progress_match:
                 new_progress = int(progress_match.group('progress'))
@@ -68,7 +69,7 @@ class Loader(object):
             ))
         else:
             raise ValueError('[{}] {}'.format(status_code, text))
-        return parts_count, part_number, progress
+        return parts_count, part_number, progress, first_request
 
     def load(self, app_id: str, table: str, fields: List[str],
              date_since: datetime.datetime, date_until: datetime.datetime,
@@ -88,7 +89,6 @@ class Loader(object):
                                                 parts_count=parts_count,
                                                 part_number=part_number,
                                                 force_recreate=force_recreate)
-                first_request = False
                 if parts_count > 1:
                     logger.info('Processing part {} from {}'.format(
                         part_number, parts_count
@@ -100,9 +100,9 @@ class Loader(object):
                     logger.info('Lines loaded: {}'.format(lines_count))
                 part_number += 1
             except LogsApiError as e:
-                parts_count, part_number, progress = \
+                parts_count, part_number, progress, first_request = \
                     self._process_error(e.status_code, e.text, parts_count,
-                                        part_number, progress)
+                                        part_number, progress, first_request)
             except ProtocolError as e:
                 logger.warning(e)
                 continue
