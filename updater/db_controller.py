@@ -10,14 +10,12 @@
   You may obtain a copy of the License at:
         https://yandex.com/legal/metrica_termsofuse/
 """
-import datetime
 import logging
 
 from pandas import DataFrame
 
 from db import Database
 from fields import DbTableDefinition
-from state import StateController
 
 logger = logging.getLogger(__name__)
 
@@ -100,7 +98,7 @@ class DbController(object):
         return df[self._definition.export_fields]
 
     def _escape_data(self, df: DataFrame) -> DataFrame:
-        logger.debug("Escaping bad symbols")
+        logger.debug("Escaping symbols")
         escape_chars = dict()
         string_cols = list(df.select_dtypes(include=['object']).columns)
         for col, type in self._definition.column_types.items():
@@ -109,13 +107,15 @@ class DbController(object):
         df.replace(escape_chars, regex=True, inplace=True)
         return df
 
-    def _export_data_to_tsv(self, df: DataFrame) -> str:
+    @staticmethod
+    def _export_data_to_tsv(df: DataFrame) -> str:
         logger.debug("Exporting data to csv")
         return df.to_csv(index=False, sep='\t')
 
     def insert_data(self, df: DataFrame):
         df = self._fetch_export_fields(df)
         df = self._escape_data(df)  # TODO: Works too slow
+        logger.debug("Inserting {} rows".format(len(df)))
         tsv = self._export_data_to_tsv(df)
         self._db.insert_distinct(
             table_name=self.table_name,

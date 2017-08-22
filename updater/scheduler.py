@@ -10,73 +10,161 @@
   You may obtain a copy of the License at:
         https://yandex.com/legal/metrica_termsofuse/
 """
-import datetime
+from datetime import datetime, date, time, timedelta
 import logging
-import time
-from typing import List, Tuple
+from time import sleep
+from typing import List, Optional, Generator
 
-from state import StateController
-from .updater import Updater
+import pandas as pd
+
+from state import StateStorage, AppIdState, InitializationSate
+from logs_api import LogsApiClient
 
 logger = logging.getLogger(__name__)
 
 
+class UpdateRequest(object):
+    def __init__(self, app_id: str, date_since: datetime, date_until: datetime,
+                 date_dimension: str):
+        self.app_id = app_id
+        self.date_since = date_since
+        self.date_until = date_until
+        self.date_dimension = date_dimension
+
+
 class Scheduler(object):
-    def __init__(self, state_controller: StateController, updater: Updater,
-                 app_ids: List[str], source_names: List[str],
-                 update_interval: datetime.timedelta,
-                 update_limit: datetime.timedelta,
-                 fresh_limit: datetime.timedelta):
-        self._state_controller = state_controller
-        self._updater = updater
+    def __init__(self, state_storage: StateStorage, app_ids: List[str],
+                 update_limit: timedelta, update_interval: timedelta):
+        self._state_storage = state_storage
         self._app_ids = app_ids
-        self._source_names = source_names
-        self._update_interval = update_interval
         self._update_limit = update_limit
-        self._fresh_limit = fresh_limit
+        self._update_interval = update_interval
+        self._state = None
+
+    def _load_state(self):
+        self._state = self._state_storage.load()
+
+    def _save_state(self):
+        self._state_storage.save(self._state)
+
+    def _get_or_create_app_id_state(self, app_id: str) -> AppIdState:
+        app_id_states = [s for s in self._state.app_id_states
+                         if s.app_id == app_id]
+        if len(app_id_states) == 0:
+            app_id_state = AppIdState(app_id)
+            self._state.app_id_states.append(app_id_state)
+        else:
+            app_id_state = app_id_states[0]
+        return app_id_state
+
+    def _start_initialization(self, app_id_state: AppIdState,
+                              date_start: date, date_until: date,
+                              now: datetime = None):
+        logger.debug('Initialization for {} is started'.format(
+            app_id_state.app_id
+        ))
+        app_id_state.inited = False
+        app_id_state.initialization_state = InitializationSate(
+            now or datetime.now(),
+            date_start,
+            date_until
+        )
+        self._save_state()
+
+    def _mark_date_inited(self, app_id_state: AppIdState, date: date):
+        logger.debug('Updated date for {}: {}'.format(
+            app_id_state.app_id, date
+        ))
+        i_state = app_id_state.initialization_state
+        if i_state is not None and i_state.date_start <= date:
+            i_state.date_start = date + timedelta(days=1)
+        self._save_state()
+
+    def _finish_initialization(self, app_id_state: AppIdState):
+        logger.debug('Initialization for {} is finished'.format(
+            app_id_state.app_id
+        ))
+        app_id_state.inited = True
+        app_id_state.initialization_state = None
+        self._save_state()
+
+    def _mark_updated_until(self, app_id_state: AppIdState,
+                            date_until: datetime):
+        logger.debug('Data for {} is updated until: {}'.format(
+            app_id_state.app_id, date_until
+        ))
+        app_id_state.updated_until = date_until
+        self._save_state()
+
+    def _finish_updates(self, now: datetime = None):
+        logger.debug('Updates are finished')
+        self._state.last_update_time = now or datetime.now()
+        self._save_state()
+
+    def _wait_time(self, update_interval: timedelta,
+                   now: datetime = None) \
+            -> Optional[timedelta]:
+        if not self._state.last_update_time:
+            return None
+        now = now or datetime.utcnow()
+        delta = self._state.last_update_time - now + update_interval
+        if delta.total_seconds() < 0:
+            return None
+        return delta
 
     def _wait_if_needed(self):
-        wait_time = self._state_controller.wait_time(self._update_interval)
+        wait_time = self._wait_time(self._update_interval)
         if wait_time:
             logger.info('Sleep for {}'.format(wait_time))
-            time.sleep(wait_time.total_seconds())
+            sleep(wait_time.total_seconds())
 
-    def _update_dates(self,
-                      dates_to_update: List[Tuple[str, datetime.date]]):
-        for (app_id, date) in dates_to_update:
-            for source in self._source_names:
-                logger.info('Loading "{date}" of "{source}" for "{app_id}"'.format(
-                    date=date,
-                    source=source,
-                    app_id=app_id
-                ))
-                self._updater.update(source, app_id, date)
-            self._state_controller.mark_updated(app_id, date)
+    def _initialize(self, app_id_state: AppIdState) \
+            -> Generator[UpdateRequest, None, None]:
+        i_state = app_id_state.initialization_state
+        if i_state is None:
+            date_to = datetime.now().date()
+            date_from = date_to - self._update_limit
+            self._start_initialization(app_id_state, date_from, date_to)
+            i_state = app_id_state.initialization_state
+        dates = pd.date_range(i_state.date_start,
+                              i_state.date_until)
+        for pd_date in dates:
+            p_date = pd_date.to_pydatetime().date()  # type: date
+            datetime_since = datetime.combine(p_date, time.min)
+            datetime_till = datetime.combine(p_date, time.max)
+            yield UpdateRequest(app_id_state.app_id,
+                                datetime_since, datetime_till,
+                                LogsApiClient.DATE_DIMENSION_CREATE)
+            self._mark_date_inited(app_id_state, p_date)
+        received_since = i_state.started_at
+        received_until = datetime.now() - timedelta(hours=1)
+        yield UpdateRequest(app_id_state.app_id,
+                            received_since, received_until,
+                            LogsApiClient.DATE_DIMENSION_RECEIVE)
+        self._mark_updated_until(app_id_state, received_until)
+        self._finish_initialization(app_id_state)
 
-    def _step(self):
-        self._wait_if_needed()
-        dates_to_update = self._state_controller.dates_to_update(
-            app_ids=self._app_ids,
-            source_names=self._source_names,
-            update_interval=self._update_interval,
-            update_limit=self._update_limit,
-            fresh_limit=self._fresh_limit
-        )
-        if len(dates_to_update) > 0:
-            self._update_dates(dates_to_update)
+    def _update_step(self, app_id_state: AppIdState) \
+            -> Generator[UpdateRequest, None, None]:
+        received_since = app_id_state.updated_until + timedelta(seconds=1)
+        received_until = datetime.now() - timedelta(hours=1)
+        yield UpdateRequest(app_id_state.app_id,
+                            received_since, received_until,
+                            LogsApiClient.DATE_DIMENSION_RECEIVE)
+        self._mark_updated_until(app_id_state, received_until)
+
+    def _step(self, app_id_state: AppIdState):
+        if app_id_state.inited:
+            return self._update_step(app_id_state)
         else:
-            logger.info('Everything is up-to-date')
-        self._state_controller.finish_updates()
+            return self._initialize(app_id_state)
 
-    def run(self):
-        logger.info("Starting updating loop")
-        while True:
-            try:
-                self._step()
-            except KeyboardInterrupt:
-                logger.info('Interrupted. Saving state...')
-                self._state_controller.save()
-                return
-            except Exception as e:
-                logger.warning(e)
-                time.sleep(10)
+    def update_requests(self) \
+            -> Generator[UpdateRequest, None, None]:
+        self._load_state()
+        self._wait_if_needed()
+        for app_id in self._app_ids:
+            app_id_state = self._get_or_create_app_id_state(app_id)
+            for update_request in self._step(app_id_state):
+                yield update_request
+        self._finish_updates()

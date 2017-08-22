@@ -10,7 +10,6 @@
   You may obtain a copy of the License at:
         https://yandex.com/legal/metrica_termsofuse/
 """
-import datetime
 import logging
 from abc import abstractmethod
 from typing import Tuple, List
@@ -54,8 +53,8 @@ class Database(object):
 
     @abstractmethod
     def is_valid_scheme(self, table_name: str, fields: List[Tuple[str, str]],
-                     date_field: str, sampling_field: str,
-                     primary_key_fields: List[str]) -> bool:
+                        date_field: str, sampling_field: str,
+                        primary_key_fields: List[str]) -> bool:
         pass
 
     @abstractmethod

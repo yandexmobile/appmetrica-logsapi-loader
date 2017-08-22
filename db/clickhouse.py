@@ -10,11 +10,10 @@
   You may obtain a copy of the License at:
         https://yandex.com/legal/metrica_termsofuse/
 """
-import datetime
 import logging
+import re
 from typing import Tuple, List
 
-import re
 import requests
 
 from .db import Database
@@ -83,7 +82,7 @@ class ClickhouseDatabase(Database):
         self._query_clickhouse(query)
 
     def _table_engine(self, date_field: str, sampling_field: str,
-                       primary_key_fields: List[str]):
+                      primary_key_fields: List[str]):
         primary_keys = [date_field] + primary_key_fields
         merge_tree_args = [date_field]
         if sampling_field:

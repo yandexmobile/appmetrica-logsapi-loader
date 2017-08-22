@@ -12,9 +12,11 @@
 from .updater import Updater
 from .db_controller import DbController
 from .scheduler import Scheduler
+from .updates_controller import UpdatesController
 
 __all__ = (
     "Updater",
     "DbController",
     "Scheduler",
+    "UpdatesController",
 )

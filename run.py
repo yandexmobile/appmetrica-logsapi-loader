@@ -16,8 +16,8 @@ import settings
 from db import ClickhouseDatabase
 from fields import SourcesCollection
 from logs_api import LogsApiClient, Loader
-from state import FileStateStorage, StateController
-from updater import Updater, Scheduler
+from state import FileStateStorage
+from updater import Updater, Scheduler, UpdatesController
 
 logger = logging.getLogger(__name__)
 
@@ -54,24 +54,27 @@ def main():
     state_storage = FileStateStorage(
         file_name=settings.STATE_FILE_PATH
     )
-    state_controller = StateController(
-        state_storage=state_storage
-    )
     updater = Updater(
         loader=logs_api_loader,
         sources_collection=sources_collection,
         db=database
     )
     scheduler = Scheduler(
-        state_controller=state_controller,
-        updater=updater,
+        state_storage=state_storage,
         app_ids=settings.APP_IDS,
-        source_names=sources_collection.source_names(),
         update_interval=settings.UPDATE_INTERVAL,
         update_limit=settings.UPDATE_LIMIT,
-        fresh_limit=settings.FRESH_LIMIT
     )
-    scheduler.run()
+    updates_controller = UpdatesController(
+        scheduler=scheduler,
+        updater=updater,
+        source_names=sources_collection.source_names()
+    )
+    try:
+        updates_controller.run()
+    except KeyboardInterrupt:
+        logger.info('Interrupted')
+        return
 
 
 if __name__ == '__main__':
