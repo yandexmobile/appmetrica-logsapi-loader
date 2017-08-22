@@ -27,9 +27,11 @@ logger = logging.getLogger(__name__)
 
 
 class Loader(object):
-    def __init__(self, client: LogsApiClient, chunk_size: int):
+    def __init__(self, client: LogsApiClient, chunk_size: int,
+                 allow_cached: bool = False):
         self.client = client
         self._chunk_size = chunk_size
+        self._allow_cached = allow_cached
         self._progress_re = re.compile(r'.*Progress is (?P<progress>\d+)%.*')
 
     def _split_response(self, response: requests.Response):
@@ -69,19 +71,24 @@ class Loader(object):
         return parts_count, part_number, progress
 
     def load(self, app_id: str, table: str, fields: List[str],
-             date: datetime.date) \
-            -> Generator[DataFrame, None, None]:
+             date_since: datetime.datetime, date_until: datetime.datetime,
+             date_dimension: str) -> Generator[DataFrame, None, None]:
         parts_count = 1
         part_number = 0
+        first_request = True
         progress = None
         while part_number < parts_count:
             try:
+                force_recreate = not self._allow_cached and first_request
                 r = self.client.logs_api_export(app_id=app_id, table=table,
                                                 fields=fields,
-                                                date_from=date,
-                                                date_to=date,
+                                                date_since=date_since,
+                                                date_until=date_until,
+                                                date_dimension=date_dimension,
                                                 parts_count=parts_count,
-                                                part_number=part_number)
+                                                part_number=part_number,
+                                                force_recreate=force_recreate)
+                first_request = False
                 if parts_count > 1:
                     logger.info('Processing part {} from {}'.format(
                         part_number, parts_count

@@ -33,6 +33,7 @@ REQUEST_CHUNK_ROWS = int(environ.get('REQUEST_CHUNK_ROWS', '1000'))
 STATE_FILE_PATH = environ.get('STATE_FILE_PATH', join(dirname(__file__), 'state.json'))
 
 LOGS_API_HOST = environ.get('LOGS_API_HOST', 'https://api.appmetrica.yandex.ru')
+ALLOW_CACHED = environ.get('ALLOW_CACHED', '0') == '1'
 
 CH_HOST = environ.get('CH_HOST', 'http://localhost:8123')
 CH_USER = environ.get('CH_USER')

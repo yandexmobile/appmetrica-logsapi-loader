@@ -42,7 +42,8 @@ def main():
     )
     logs_api_loader = Loader(
         client=logs_api_client,
-        chunk_size=settings.REQUEST_CHUNK_ROWS
+        chunk_size=settings.REQUEST_CHUNK_ROWS,
+        allow_cached=settings.ALLOW_CACHED
     )
     database = ClickhouseDatabase(
         url=settings.CH_HOST,

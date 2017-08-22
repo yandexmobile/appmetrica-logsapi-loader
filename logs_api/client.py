@@ -27,6 +27,9 @@ class LogsApiError(Exception):
 
 
 class LogsApiClient(object):
+    DATE_DIMENSION_CREATE = 'default'
+    DATE_DIMENSION_RECEIVE = 'receive'
+
     def __init__(self, token: str, host: str):
         self.token = token
         self.host = host
@@ -53,20 +56,23 @@ class LogsApiClient(object):
         return create_date
 
     def logs_api_export(self, app_id: str, table: str, fields: List[str],
-                        date_from: datetime.date, date_to: datetime.date,
-                        parts_count: int, part_number: int):
+                        date_since: datetime.datetime,
+                        date_until: datetime.datetime,
+                        date_dimension: str,
+                        parts_count: int,
+                        part_number: int,
+                        force_recreate: bool):
         url = '{host}/logs/v1/export/{table}.csv'.format(
             host=self.host,
             table=table
         )
-        time_from = datetime.datetime.combine(date_from, datetime.time.min)
-        time_to = datetime.datetime.combine(date_to, datetime.time.max)
+
         date_format = '%Y-%m-%d %H:%M:%S'
         params = {
             'application_id': app_id,
-            'date_since': time_from.strftime(date_format),
-            'date_until': time_to.strftime(date_format),
-            'date_dimension': 'default',
+            'date_since': date_since.strftime(date_format),
+            'date_until': date_until.strftime(date_format),
+            'date_dimension': date_dimension,
             'fields': ','.join(fields),
             'oauth_token': self.token
         }  # type:Dict[str, Any]
@@ -75,7 +81,15 @@ class LogsApiClient(object):
                 'parts_count': parts_count,
                 'part_number': part_number,
             })
-        response = requests.get(url, params=params, stream=True)
+
+        headers = {
+            'Accept-Encoding': 'gzip',
+        }
+        if force_recreate:
+            headers['Cache-Control'] = 'no-cache'
+
+        response = requests.get(url, params=params, headers=headers,
+                                stream=True)
         if response.status_code != 200:
             raise LogsApiError(response.status_code, response.text)
         return response
