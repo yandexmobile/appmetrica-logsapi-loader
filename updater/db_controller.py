@@ -97,11 +97,7 @@ class DbController(object):
         logger.debug("Exporting data to csv")
         return df.to_csv(index=False, sep='\t')
 
-    def insert_data(self, df: DataFrame, table_suffix: str):
-        df = self._fetch_export_fields(df)
-        df = self._escape_data(df)  # TODO: Works too slow
-        logger.debug("Inserting {} rows".format(len(df)))
-        tsv = self._export_data_to_tsv(df)
+    def recreate_table(self, table_suffix: str):
         table_name = self.table_name(table_suffix)
         self._db.drop_table(table_name)
         self._db.create_table(
@@ -111,4 +107,11 @@ class DbController(object):
             self.sampling_field,
             self.primary_keys
         )
+
+    def insert_data(self, df: DataFrame, table_suffix: str):
+        df = self._fetch_export_fields(df)
+        df = self._escape_data(df)  # TODO: Works too slow
+        logger.debug("Inserting {} rows".format(len(df)))
+        tsv = self._export_data_to_tsv(df)
+        table_name = self.table_name(table_suffix)
         self._db.insert(table_name, tsv)

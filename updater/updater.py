@@ -34,12 +34,6 @@ class Updater(object):
         self._db = db
 
     @staticmethod
-    def _drop_duplicates(df: DataFrame) -> DataFrame:
-        logger.debug('Dropping duplicates')
-        df.drop_duplicates(inplace=True)
-        return df
-
-    @staticmethod
     def _ensure_types(df: DataFrame, types: Dict[str, str]) -> DataFrame:
         logger.debug('Ensuring types')
         for col, db_type in types.items():
@@ -70,7 +64,6 @@ class Updater(object):
     def _process_data(self, app_id: str, df: DataFrame,
                       processing_definition: ProcessingDefinition):
         df = df.copy()  # type: DataFrame
-        df = self._drop_duplicates(df)
         df = self._ensure_types(df, processing_definition.field_types)
         df = self._append_system_fields(df, app_id)
         df = self._apply_converters(df, processing_definition.field_converters)
@@ -101,13 +94,15 @@ class Updater(object):
                      db_controller: DbController):
         since = datetime.datetime.combine(date, datetime.time.min)
         until = datetime.datetime.combine(date, datetime.time.max)
+        suffix = '{}_{}'.format(app_id, date.strftime('%Y%m%d'))
+        db_controller.recreate_table(suffix)
+
         df_it = self._load(source, app_id, since, until,
                            LogsApiClient.DATE_DIMENSION_CREATE)
         for df in df_it:
             logger.debug("Start processing data chunk")
             upload_df = self._process_data(app_id, df,
                                            processing_definition)
-            suffix = '{}_{}'.format(app_id, date.strftime('%Y%m%d'))
             db_controller.insert_data(upload_df, suffix)
 
     def update(self, source: str, app_id: str, date_from: datetime.date,
