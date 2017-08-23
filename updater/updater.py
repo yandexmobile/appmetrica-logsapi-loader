@@ -91,11 +91,11 @@ class Updater(object):
 
     def _update_date(self, app_id: str, source: str, date:datetime.date,
                      processing_definition: ProcessingDefinition,
-                     db_controller: DbController):
+                     db_controller: DbController,
+                     table_suffix: str):
         since = datetime.datetime.combine(date, datetime.time.min)
         until = datetime.datetime.combine(date, datetime.time.max)
-        suffix = '{}_{}'.format(app_id, date.strftime('%Y%m%d'))
-        db_controller.recreate_table(suffix)
+        db_controller.recreate_table(table_suffix)
 
         df_it = self._load(source, app_id, since, until,
                            LogsApiClient.DATE_DIMENSION_CREATE)
@@ -103,14 +103,16 @@ class Updater(object):
             logger.debug("Start processing data chunk")
             upload_df = self._process_data(app_id, df,
                                            processing_definition)
-            db_controller.insert_data(upload_df, suffix)
+            db_controller.insert_data(upload_df, table_suffix)
 
-    def update(self, source: str, app_id: str, date_from: datetime.date,
-               date_to: datetime.date):
+    def update(self, source: str, app_id: str, date: datetime.date,
+               table_suffix: str):
         db_controller = self._cached_db_controller(source)
         processing_definition = \
             self._sources_collection.processing_definition(source)
-        for pd_date in pd.date_range(date_from, date_to):
-            date = pd_date.to_pydatetime().date()  # type: datetime.date
-            self._update_date(app_id, source, date,
-                              processing_definition, db_controller)
+        self._update_date(app_id, source, date, processing_definition,
+                          db_controller, table_suffix)
+
+    def archive(self, source: str, table_suffix: str):
+        db_controller = self._cached_db_controller(source)
+        db_controller.archive_table(table_suffix)

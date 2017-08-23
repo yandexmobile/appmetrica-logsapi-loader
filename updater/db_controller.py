@@ -34,6 +34,9 @@ _escape_characters = {
 
 
 class DbController(object):
+    ARCHIVE_SUFFIX = 'old'
+    ALL_SUFFIX = 'all'
+
     def __init__(self, db: Database, definition: DbTableDefinition):
         self._db = db
         self._definition = definition
@@ -57,17 +60,13 @@ class DbController(object):
     def primary_keys(self):
         return self._definition.primary_keys
 
-    @property
-    def temp_table_name(self):
-        return '{}_tmp'.format(self.table_name)
-
     def _prepare_db(self):
         if not self._db.database_exists():
             self._db.create_database()
             logger.info('Database "{}" created'.format(self._db.db_name))
 
     def _prepare_table(self):
-        table_name = self.table_name('all')
+        table_name = self.table_name(self.ALL_SUFFIX)
         table_exists = self._db.table_exists(table_name)
         if not table_exists:
             self._db.create_merge_table(table_name,
@@ -97,9 +96,7 @@ class DbController(object):
         logger.debug("Exporting data to csv")
         return df.to_csv(index=False, sep='\t')
 
-    def recreate_table(self, table_suffix: str):
-        table_name = self.table_name(table_suffix)
-        self._db.drop_table(table_name)
+    def _create_table(self, table_name):
         self._db.create_table(
             table_name,
             self._definition.field_types.items(),
@@ -107,6 +104,24 @@ class DbController(object):
             self.sampling_field,
             self.primary_keys
         )
+
+    def archive_table(self, table_suffix: str):
+        source_table_name = self.table_name(table_suffix)
+        if not self._db.table_exists(source_table_name):
+            logger.warning('Table to archive is not exist: {}'.format(
+                source_table_name
+            ))
+            return
+        archive_table_name = self.table_name(self.ARCHIVE_SUFFIX)
+        if not self._db.table_exists(archive_table_name):
+            self._create_table(archive_table_name)
+        self._db.copy_data(source_table_name, archive_table_name)
+        self._db.drop_table(source_table_name)
+
+    def recreate_table(self, table_suffix: str):
+        table_name = self.table_name(table_suffix)
+        self._db.drop_table(table_name)
+        self._create_table(table_name)
 
     def insert_data(self, df: DataFrame, table_suffix: str):
         df = self._fetch_export_fields(df)

@@ -72,6 +72,10 @@ class Database(object):
         pass
 
     @abstractmethod
+    def copy_data(self, source_table: str, target_table: str):
+        pass
+
+    @abstractmethod
     def insert_distinct(self, table_name: str, tsv_content: str,
                         unique_fields: List[str], temp_table_name: str):
         pass

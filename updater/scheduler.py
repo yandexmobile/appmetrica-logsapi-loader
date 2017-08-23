@@ -18,16 +18,19 @@ from typing import List, Optional, Generator
 import pandas as pd
 
 from state import StateStorage, AppIdState
-from logs_api import LogsApiClient
 
 logger = logging.getLogger(__name__)
 
 
 class UpdateRequest(object):
-    def __init__(self, app_id: str, date_since: date, date_until: date):
+    ARCHIVE = 'archive'
+    LOAD = 'load'
+    LOAD_INTO_ARCHIVE = 'load_into_archive'
+
+    def __init__(self, app_id: str, p_date: date, update_type: str):
         self.app_id = app_id
-        self.date_since = date_since
-        self.date_until = date_until
+        self.date = p_date
+        self.update_type = update_type
 
 
 class Scheduler(object):
@@ -65,6 +68,13 @@ class Scheduler(object):
         app_id_state.date_updates[p_date] = now or datetime.now()
         self._save_state()
 
+    def _mark_date_archived(self, app_id_state: AppIdState, p_date: date):
+        logger.debug('Data for {} of {} is archived'.format(
+            p_date, app_id_state.app_id
+        ))
+        app_id_state.date_updates[p_date] = datetime.max
+        self._save_state()
+
     def _finish_updates(self, now: datetime = None):
         logger.debug('Updates are finished')
         self._state.last_update_time = now or datetime.now()
@@ -87,21 +97,50 @@ class Scheduler(object):
             logger.info('Sleep for {}'.format(wait_time))
             sleep(wait_time.total_seconds())
 
-    def _step(self, app_id_state: AppIdState):
+    def _archive_old_dates(self, app_id_state: AppIdState):
+        for p_date, updated_at in app_id_state.date_updates.items():
+            last_event_date = datetime.combine(p_date, time.max)
+            fresh = updated_at - last_event_date < self._fresh_limit
+            if not fresh:
+                yield UpdateRequest(app_id_state.app_id, p_date,
+                                    UpdateRequest.ARCHIVE)
+                self._mark_date_archived(app_id_state, p_date)
+
+    def _update_date(self, app_id_state: AppIdState, p_date: date,
+                     started_at: datetime) \
+            -> Generator[UpdateRequest, None, None]:
+        updated_at = app_id_state.date_updates.get(p_date)
+        last_event_date = datetime.combine(p_date, time.max)
+        if updated_at:
+            updated = started_at - updated_at < self._update_interval
+            if updated:
+                return
+        last_event_delta = (updated_at or started_at) - last_event_date
+        fresh = last_event_delta < self._fresh_limit
+        if fresh:
+            yield UpdateRequest(app_id_state.app_id, p_date,
+                                UpdateRequest.LOAD)
+            self._mark_date_updated(app_id_state, p_date)
+        else:
+            yield UpdateRequest(app_id_state.app_id, p_date,
+                                UpdateRequest.LOAD_INTO_ARCHIVE)
+            self._mark_date_archived(app_id_state, p_date)
+
+    def _step(self, app_id_state: AppIdState) \
+            -> Generator[UpdateRequest, None, None]:
         started_at = datetime.now()
         date_to = started_at.date()
         date_from = date_to - self._update_limit
+
+        updates = self._archive_old_dates(app_id_state)
+        for update_request in updates:
+            yield update_request
+
         for pd_date in pd.date_range(date_from, date_to):
             p_date = pd_date.to_pydatetime().date()  # type: date
-            updated_at = app_id_state.date_updates.get(p_date)
-            if updated_at:
-                last_event_date = datetime.combine(p_date, time.max)
-                updated = started_at - updated_at < self._update_interval
-                fresh = updated_at - last_event_date < self._fresh_limit
-                if updated or not fresh:
-                    continue
-            yield UpdateRequest(app_id_state.app_id, p_date, p_date)
-            self._mark_date_updated(app_id_state, p_date)
+            updates = self._update_date(app_id_state, p_date, started_at)
+            for update_request in updates:
+                yield update_request
 
     def update_requests(self) \
             -> Generator[UpdateRequest, None, None]:

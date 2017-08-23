@@ -166,6 +166,18 @@ class ClickhouseDatabase(Database):
             .format(db=self.db_name, table=table_name)
         return self._query_clickhouse(tsv_content, query=query)
 
+    def copy_data(self, source_table: str, target_table: str):
+        query = '''
+            INSERT INTO {db}.{to_table} 
+                SELECT *
+                FROM {db}.{from_table}
+        '''.format(
+            db=self.db_name,
+            from_table=source_table,
+            to_table=target_table,
+        )
+        self.query(query)
+
     def _copy_data_distinct(self, source_table: str, target_table: str,
                             unique_fields: List[str]):
         query = '''
