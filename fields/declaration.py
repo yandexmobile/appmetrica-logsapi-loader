@@ -82,7 +82,7 @@ _click_keys = [
 ]
 _clicks_unification_ignores = _common_ignored_fields + [
 ]
-_clicks_source = Source("clicks", "clicks_all", "click_date", "click_ipv6",
+_clicks_source = Source("clicks", "clicks", "click_date", "click_ipv6",
                         _click_keys, _clicks_unification_ignores, _click_fields)
 
 
@@ -128,7 +128,7 @@ _postback_key = [
 _postbacks_unification_ignores = _common_ignored_fields + [
     "response_body",
 ]
-_postbacks_source = Source("postbacks", "postbacks_all", "attempt_date", None,
+_postbacks_source = Source("postbacks", "postbacks", "attempt_date", None,
                            _postback_key, _postbacks_unification_ignores, _postback_fields)
 
 
@@ -150,7 +150,7 @@ _event_key = [
 ]
 _events_unification_ignores = _common_ignored_fields + [
 ]
-_events_source = Source("events", "events_all", "event_date", "appmetrica_device_id",
+_events_source = Source("events", "events", "event_date", "appmetrica_device_id",
                         _event_key, _events_unification_ignores, _event_fields)
 
 
@@ -168,7 +168,7 @@ _push_token_key = [
 ]
 _push_tokens_unification_ignores = _common_ignored_fields + [
 ]
-_push_tokens_source = Source("push_tokens", "push_tokens_all", "token_date", "appmetrica_device_id",
+_push_tokens_source = Source("push_tokens", "push_tokens", "token_date", "appmetrica_device_id",
                              _push_token_key, _push_tokens_unification_ignores, _push_token_fields)
 
 
@@ -193,7 +193,7 @@ _crash_key = [
 _crashes_unification_ignores = _common_ignored_fields + [
     "crash",
 ]
-_crashes_source = Source("crashes", "crashes_all", "crash_date", "appmetrica_device_id",
+_crashes_source = Source("crashes", "crashes", "crash_date", "appmetrica_device_id",
                          _crash_key, _crashes_unification_ignores, _crash_fields)
 
 
@@ -216,7 +216,7 @@ _error_key = [
 _errors_unification_ignores = _common_ignored_fields + [
     "error",
 ]
-_errors_source = Source("errors", "errors_all", "error_date", "appmetrica_device_id",
+_errors_source = Source("errors", "errors", "error_date", "appmetrica_device_id",
                         _error_key, _errors_unification_ignores, _error_fields)
 
 
@@ -234,7 +234,7 @@ _sessions_start_key = [
 ]
 _sessions_starts_unification_ignores = _common_ignored_fields + [
 ]
-_sessions_starts_source = Source("sessions_starts", "sessions_starts_all", "session_start_date", "appmetrica_device_id",
+_sessions_starts_source = Source("sessions_starts", "sessions_starts", "session_start_date", "appmetrica_device_id",
                                  _sessions_start_key, _sessions_starts_unification_ignores, _sessions_start_fields)
 
 

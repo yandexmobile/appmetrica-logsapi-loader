@@ -114,6 +114,22 @@ class ClickhouseDatabase(Database):
         )
         self._query_clickhouse(q)
 
+    def create_merge_table(self, table_name: str,
+                           fields: List[Tuple[str, str]],
+                           merge_re: str):
+        fields_string = ','.join(('{} {}'.format(f, f_type)
+                                  for (f, f_type) in fields))
+        q = '''
+            CREATE TABLE {db}.{table} ({fields})
+            ENGINE = Merge({db}, '{merge_re}')
+        '''.format(
+            db=self.db_name,
+            table=table_name,
+            fields=fields_string,
+            merge_re=merge_re
+        )
+        self._query_clickhouse(q)
+
     def is_valid_scheme(self, table_name: str, fields: List[Tuple[str, str]],
                         date_field: str, sampling_field: str,
                         primary_key_fields: List[str]) -> bool:
@@ -145,7 +161,7 @@ class ClickhouseDatabase(Database):
             )
             self.query(new_query)
 
-    def _insert(self, table_name: str, tsv_content: str):
+    def insert(self, table_name: str, tsv_content: str):
         query = 'INSERT INTO {db}.{table} FORMAT TabSeparatedWithNames' \
             .format(db=self.db_name, table=table_name)
         return self._query_clickhouse(tsv_content, query=query)

@@ -30,10 +30,9 @@ class UpdatesController(object):
     def _update(self, update_request: UpdateRequest):
         for source in self._source_names:
             logger.info('Loading "{date_since}"-"{date_until}" '
-                        'of "{source}" by "{dimension}" for "{app_id}"'.format(
+                        'of "{source}" for "{app_id}"'.format(
                 date_since=update_request.date_since,
                 date_until=update_request.date_until,
-                dimension=update_request.date_dimension,
                 source=source,
                 app_id=update_request.app_id
             ))
@@ -41,8 +40,7 @@ class UpdatesController(object):
                 source,
                 update_request.app_id,
                 update_request.date_since,
-                update_request.date_until,
-                update_request.date_dimension
+                update_request.date_until
             )
 
     def _step(self):

@@ -10,6 +10,7 @@
   You may obtain a copy of the License at:
         https://yandex.com/legal/metrica_termsofuse/
 """
+import datetime
 import logging
 
 from pandas import DataFrame
@@ -37,9 +38,12 @@ class DbController(object):
         self._db = db
         self._definition = definition
 
+    def table_name(self, suffix: str):
+        return '{}_{}'.format(self._definition.table_name, suffix)
+
     @property
-    def table_name(self):
-        return self._definition.table_name
+    def merge_re(self):
+        return '^{}.*'.format(self._definition.table_name)
 
     @property
     def date_field(self):
@@ -57,37 +61,18 @@ class DbController(object):
     def temp_table_name(self):
         return '{}_tmp'.format(self.table_name)
 
-    @property
-    def scheme(self):
-        return str((
-            self.date_field,
-            self.sampling_field,
-            tuple(self._definition.field_types.items())
-        ))
-
     def _prepare_db(self):
         if not self._db.database_exists():
             self._db.create_database()
             logger.info('Database "{}" created'.format(self._db.db_name))
 
     def _prepare_table(self):
-        table_exists = self._db.table_exists(self.table_name)
-        field_types = self._definition.field_types.items()
+        table_name = self.table_name('all')
+        table_exists = self._db.table_exists(table_name)
         if not table_exists:
-            should_create = True
-        else:
-            scheme_valid = self._db.is_valid_scheme(self.table_name,
-                                                    field_types,
-                                                    self.date_field,
-                                                    self.sampling_field,
-                                                    self.primary_keys)
-            should_create = not scheme_valid
-        if should_create:
-            self._db.drop_table(self.table_name)
-            self._db.create_table(self.table_name, field_types,
-                                  self.date_field, self.sampling_field,
-                                  self.primary_keys)
-            logger.info('Table "{}" created'.format(self.table_name))
+            self._db.create_merge_table(table_name,
+                                        self._definition.field_types.items(),
+                                        self.merge_re)
 
     def prepare(self):
         self._prepare_db()
@@ -112,17 +97,18 @@ class DbController(object):
         logger.debug("Exporting data to csv")
         return df.to_csv(index=False, sep='\t')
 
-    def insert_data(self, df: DataFrame):
+    def insert_data(self, df: DataFrame, table_suffix: str):
         df = self._fetch_export_fields(df)
         df = self._escape_data(df)  # TODO: Works too slow
         logger.debug("Inserting {} rows".format(len(df)))
         tsv = self._export_data_to_tsv(df)
-        self._db.insert_distinct(
-            table_name=self.table_name,
-            tsv_content=tsv,
-            unique_fields=self._definition.unique_keys,
-            temp_table_name=self.temp_table_name
+        table_name = self.table_name(table_suffix)
+        self._db.drop_table(table_name)
+        self._db.create_table(
+            table_name,
+            self._definition.field_types.items(),
+            self.date_field,
+            self.sampling_field,
+            self.primary_keys
         )
-
-    def cleanup(self):
-        self._db.drop_table(self.temp_table_name)
+        self._db.insert(table_name, tsv)

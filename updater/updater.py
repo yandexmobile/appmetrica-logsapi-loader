@@ -14,11 +14,12 @@ import datetime
 import logging
 from typing import Dict
 
+import pandas as pd
 from pandas import DataFrame, Series
 
 from db import Database
 from fields import SourcesCollection, Converter, ProcessingDefinition
-from logs_api import Loader
+from logs_api import Loader, LogsApiClient
 from .db_controller import DbController
 
 logger = logging.getLogger(__name__)
@@ -95,14 +96,26 @@ class Updater(object):
                                   date_from, date_to, date_dimension)
         return df_it
 
-    def update(self, source: str, app_id: str, date_from: datetime.datetime,
-               date_to: datetime.datetime, date_dimension: str):
+    def _update_date(self, app_id: str, source: str, date:datetime.date,
+                     processing_definition: ProcessingDefinition,
+                     db_controller: DbController):
+        since = datetime.datetime.combine(date, datetime.time.min)
+        until = datetime.datetime.combine(date, datetime.time.max)
+        df_it = self._load(source, app_id, since, until,
+                           LogsApiClient.DATE_DIMENSION_CREATE)
+        for df in df_it:
+            logger.debug("Start processing data chunk")
+            upload_df = self._process_data(app_id, df,
+                                           processing_definition)
+            suffix = '{}_{}'.format(app_id, date.strftime('%Y%m%d'))
+            db_controller.insert_data(upload_df, suffix)
+
+    def update(self, source: str, app_id: str, date_from: datetime.date,
+               date_to: datetime.date):
         db_controller = self._cached_db_controller(source)
         processing_definition = \
             self._sources_collection.processing_definition(source)
-        df_it = self._load(source, app_id, date_from, date_to, date_dimension)
-        for df in df_it:
-            logger.debug("Start processing data chunk")
-            upload_df = self._process_data(app_id, df, processing_definition)
-            db_controller.insert_data(upload_df)
-        db_controller.cleanup()
+        for pd_date in pd.date_range(date_from, date_to):
+            date = pd_date.to_pydatetime().date()  # type: datetime.date
+            self._update_date(app_id, source, date,
+                              processing_definition, db_controller)

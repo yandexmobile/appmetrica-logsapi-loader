@@ -52,6 +52,12 @@ class Database(object):
         pass
 
     @abstractmethod
+    def create_merge_table(self, table_name: str,
+                           fields: List[Tuple[str, str]],
+                           merge_re: str):
+        pass
+
+    @abstractmethod
     def is_valid_scheme(self, table_name: str, fields: List[Tuple[str, str]],
                         date_field: str, sampling_field: str,
                         primary_key_fields: List[str]) -> bool:
@@ -59,6 +65,10 @@ class Database(object):
 
     @abstractmethod
     def query(self, query_text: str):
+        pass
+
+    @abstractmethod
+    def insert(self, table_name: str, tsv_content: str):
         pass
 
     @abstractmethod

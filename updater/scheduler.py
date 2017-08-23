@@ -24,12 +24,10 @@ logger = logging.getLogger(__name__)
 
 
 class UpdateRequest(object):
-    def __init__(self, app_id: str, date_since: datetime, date_until: datetime,
-                 date_dimension: str):
+    def __init__(self, app_id: str, date_since: date, date_until: date):
         self.app_id = app_id
         self.date_since = date_since
         self.date_until = date_until
-        self.date_dimension = date_dimension
 
 
 class Scheduler(object):
@@ -102,14 +100,7 @@ class Scheduler(object):
                 fresh = updated_at - last_event_date < self._fresh_limit
                 if updated or not fresh:
                     continue
-            datetime_since = datetime.combine(p_date, time.min)
-            datetime_until = datetime.combine(p_date, time.max)
-            yield UpdateRequest(
-                app_id_state.app_id,
-                datetime_since,
-                datetime_until,
-                LogsApiClient.DATE_DIMENSION_CREATE
-            )
+            yield UpdateRequest(app_id_state.app_id, p_date, p_date)
             self._mark_date_updated(app_id_state, p_date)
 
     def update_requests(self) \
