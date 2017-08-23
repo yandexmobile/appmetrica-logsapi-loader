@@ -18,6 +18,7 @@ from fields import SourcesCollection
 from logs_api import LogsApiClient, Loader
 from state import FileStateStorage
 from updater import Updater, Scheduler, UpdatesController
+from updater.db_controllers_collection import DbControllersCollection
 
 logger = logging.getLogger(__name__)
 
@@ -51,13 +52,15 @@ def main():
         password=settings.CH_PASSWORD,
         db_name=settings.CH_DATABASE
     )
+    db_controllers_collection = DbControllersCollection(
+        db=database,
+        sources_collection=sources_collection
+    )
     state_storage = FileStateStorage(
         file_name=settings.STATE_FILE_PATH
     )
     updater = Updater(
-        loader=logs_api_loader,
-        sources_collection=sources_collection,
-        db=database
+        loader=logs_api_loader
     )
     scheduler = Scheduler(
         state_storage=state_storage,
@@ -69,7 +72,8 @@ def main():
     updates_controller = UpdatesController(
         scheduler=scheduler,
         updater=updater,
-        source_names=sources_collection.source_names()
+        sources_collection=sources_collection,
+        db_controllers_collection=db_controllers_collection
     )
     try:
         updates_controller.run()

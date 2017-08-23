@@ -18,7 +18,8 @@ import pandas as pd
 from pandas import DataFrame, Series
 
 from db import Database
-from fields import SourcesCollection, Converter, ProcessingDefinition
+from fields import SourcesCollection, Converter, ProcessingDefinition, \
+    LoadingDefinition
 from logs_api import Loader, LogsApiClient
 from .db_controller import DbController
 
@@ -26,12 +27,8 @@ logger = logging.getLogger(__name__)
 
 
 class Updater(object):
-    def __init__(self, loader: Loader, sources_collection: SourcesCollection,
-                 db: Database):
+    def __init__(self, loader: Loader):
         self._loader = loader
-        self._sources_collection = sources_collection
-        self._db_controllers = dict()
-        self._db = db
 
     @staticmethod
     def _ensure_types(df: DataFrame, types: Dict[str, str]) -> DataFrame:
@@ -69,50 +66,27 @@ class Updater(object):
         df = self._apply_converters(df, processing_definition.field_converters)
         return df
 
-    def _cached_db_controller(self, source: str):
-        if source in self._db_controllers.keys():
-            db_controller = self._db_controllers[source]
-        else:
-            db_table_definition = \
-                self._sources_collection.db_table_definition(source)
-            db_controller = DbController(self._db, db_table_definition)
-            db_controller.prepare()
-            self._db_controllers[source] = db_controller
-        return db_controller
-
-    def _load(self, source: str, app_id: str, date_from: datetime.datetime,
-              date_to: datetime.datetime, date_dimension: str):
-        loading_definition = \
-            self._sources_collection.loading_definition(source)
+    def _load(self, app_id: str, loading_definition: LoadingDefinition,
+              date_from: datetime.datetime,
+              date_to: datetime.datetime,
+              date_dimension: str):
         df_it = self._loader.load(app_id, loading_definition.source_name,
                                   loading_definition.fields,
                                   date_from, date_to, date_dimension)
         return df_it
 
-    def _update_date(self, app_id: str, source: str, date:datetime.date,
-                     processing_definition: ProcessingDefinition,
-                     db_controller: DbController,
-                     table_suffix: str):
+    def update(self, app_id: str, date: datetime.date,
+               table_suffix: str, db_controller: DbController,
+               processing_definition: ProcessingDefinition,
+               loading_definition: LoadingDefinition):
         since = datetime.datetime.combine(date, datetime.time.min)
         until = datetime.datetime.combine(date, datetime.time.max)
-        db_controller.recreate_table(table_suffix)
+        db_controller.ensure_table_created(table_suffix)
 
-        df_it = self._load(source, app_id, since, until,
+        df_it = self._load(app_id, loading_definition, since, until,
                            LogsApiClient.DATE_DIMENSION_CREATE)
         for df in df_it:
             logger.debug("Start processing data chunk")
             upload_df = self._process_data(app_id, df,
                                            processing_definition)
             db_controller.insert_data(upload_df, table_suffix)
-
-    def update(self, source: str, app_id: str, date: datetime.date,
-               table_suffix: str):
-        db_controller = self._cached_db_controller(source)
-        processing_definition = \
-            self._sources_collection.processing_definition(source)
-        self._update_date(app_id, source, date, processing_definition,
-                          db_controller, table_suffix)
-
-    def archive(self, source: str, table_suffix: str):
-        db_controller = self._cached_db_controller(source)
-        db_controller.archive_table(table_suffix)

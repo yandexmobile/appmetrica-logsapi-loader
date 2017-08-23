@@ -34,6 +34,8 @@ class UpdateRequest(object):
 
 
 class Scheduler(object):
+    ARCHIVED_DATE = datetime(3000, 1, 1, tzinfo=datetime.now().tzinfo)
+
     def __init__(self, state_storage: StateStorage, app_ids: List[str],
                  update_limit: timedelta, update_interval: timedelta,
                  fresh_limit: timedelta):
@@ -72,8 +74,12 @@ class Scheduler(object):
         logger.debug('Data for {} of {} is archived'.format(
             p_date, app_id_state.app_id
         ))
-        app_id_state.date_updates[p_date] = datetime.max
+        app_id_state.date_updates[p_date] = self.ARCHIVED_DATE
         self._save_state()
+
+    def _is_date_archived(self, app_id_state: AppIdState, p_date: date):
+        updated_at = app_id_state.date_updates.get(p_date)
+        return updated_at is not None and updated_at == self.ARCHIVED_DATE
 
     def _finish_updates(self, now: datetime = None):
         logger.debug('Updates are finished')
@@ -99,6 +105,8 @@ class Scheduler(object):
 
     def _archive_old_dates(self, app_id_state: AppIdState):
         for p_date, updated_at in app_id_state.date_updates.items():
+            if self._is_date_archived(app_id_state, p_date):
+                continue
             last_event_date = datetime.combine(p_date, time.max)
             fresh = updated_at - last_event_date < self._fresh_limit
             if not fresh:
@@ -126,28 +134,23 @@ class Scheduler(object):
                                 UpdateRequest.LOAD_INTO_ARCHIVE)
             self._mark_date_archived(app_id_state, p_date)
 
-    def _step(self, app_id_state: AppIdState) \
-            -> Generator[UpdateRequest, None, None]:
-        started_at = datetime.now()
-        date_to = started_at.date()
-        date_from = date_to - self._update_limit
-
-        updates = self._archive_old_dates(app_id_state)
-        for update_request in updates:
-            yield update_request
-
-        for pd_date in pd.date_range(date_from, date_to):
-            p_date = pd_date.to_pydatetime().date()  # type: date
-            updates = self._update_date(app_id_state, p_date, started_at)
-            for update_request in updates:
-                yield update_request
-
     def update_requests(self) \
             -> Generator[UpdateRequest, None, None]:
         self._load_state()
         self._wait_if_needed()
+        started_at = datetime.now()
         for app_id in self._app_ids:
             app_id_state = self._get_or_create_app_id_state(app_id)
-            for update_request in self._step(app_id_state):
+            date_to = started_at.date()
+            date_from = date_to - self._update_limit
+
+            updates = self._archive_old_dates(app_id_state)
+            for update_request in updates:
                 yield update_request
+
+            for pd_date in pd.date_range(date_from, date_to):
+                p_date = pd_date.to_pydatetime().date()  # type: date
+                updates = self._update_date(app_id_state, p_date, started_at)
+                for update_request in updates:
+                    yield update_request
         self._finish_updates()

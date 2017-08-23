@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-  scheduler.py
+  updates_controller.py
 
   This file is a part of the AppMetrica.
 
@@ -15,26 +15,30 @@ import logging
 import time
 from typing import List
 
+from fields import SourcesCollection
 from .scheduler import Scheduler, UpdateRequest
 from .db_controller import DbController
 from .updater import Updater
+from .db_controllers_collection import DbControllersCollection
 
 logger = logging.getLogger(__name__)
 
 
 class UpdatesController(object):
     def __init__(self, scheduler: Scheduler, updater: Updater,
-                 source_names: List[str]):
+                 sources_collection: SourcesCollection,
+                 db_controllers_collection: DbControllersCollection):
         self._scheduler = scheduler
         self._updater = updater
-        self._source_names = source_names
+        self._sources_collection = sources_collection
+        self._db_controllers_collection = db_controllers_collection
 
     @staticmethod
     def _table_suffix(app_id: str, date: datetime.date):
         return '{}_{}'.format(app_id, date.strftime('%Y%m%d'))
 
     def _load_into_table(self, source: str, update_request: UpdateRequest,
-                         table_suffix: str):
+                         table_suffix: str, db_controller: DbController):
         logger.info('Loading "{date}" into "{suffix}" of "{source}" '
                     'for "{app_id}"'.format(
             date=update_request.date,
@@ -42,11 +46,14 @@ class UpdatesController(object):
             app_id=update_request.app_id,
             suffix=table_suffix
         ))
+
         self._updater.update(
-            source,
             update_request.app_id,
             update_request.date,
-            table_suffix
+            table_suffix,
+            db_controller,
+            self._sources_collection.processing_definition(source),
+            self._sources_collection.loading_definition(source)
         )
 
     def _archive(self, source: str, update_request: UpdateRequest,
@@ -56,10 +63,8 @@ class UpdatesController(object):
             source=source,
             app_id=update_request.app_id
         ))
-        self._updater.archive(
-            source,
-            table_suffix
-        )
+        db_controller = self._db_controllers_collection.db_controller(source)
+        db_controller.archive_table(table_suffix)
 
     def _update(self, update_request: UpdateRequest):
         update_type = update_request.update_type
@@ -67,14 +72,19 @@ class UpdatesController(object):
             update_request.app_id,
             update_request.date
         )
-        for source in self._source_names:
+        for source in self._sources_collection.source_names():
+            db_controller = \
+                self._db_controllers_collection.db_controller(source)
             if update_type == UpdateRequest.LOAD:
-                self._load_into_table(source, update_request, table_suffix)
+                db_controller.recreate_table(table_suffix)
+                self._load_into_table(source, update_request, table_suffix,
+                                      db_controller)
             elif update_type == UpdateRequest.ARCHIVE:
                 self._archive(source, update_request, table_suffix)
             elif update_type == UpdateRequest.LOAD_INTO_ARCHIVE:
                 self._load_into_table(source, update_request,
-                                      DbController.ARCHIVE_SUFFIX)
+                                      DbController.ARCHIVE_SUFFIX,
+                                      db_controller)
 
     def _step(self):
         update_requests = self._scheduler.update_requests()

@@ -10,7 +10,6 @@
   You may obtain a copy of the License at:
         https://yandex.com/legal/metrica_termsofuse/
 """
-import datetime
 import logging
 
 from pandas import DataFrame
@@ -105,6 +104,10 @@ class DbController(object):
             self.primary_keys
         )
 
+    def _ensure_table_created(self, table_name):
+        if not self._db.table_exists(table_name):
+            self._create_table(table_name)
+
     def archive_table(self, table_suffix: str):
         source_table_name = self.table_name(table_suffix)
         if not self._db.table_exists(source_table_name):
@@ -113,8 +116,7 @@ class DbController(object):
             ))
             return
         archive_table_name = self.table_name(self.ARCHIVE_SUFFIX)
-        if not self._db.table_exists(archive_table_name):
-            self._create_table(archive_table_name)
+        self._ensure_table_created(archive_table_name)
         self._db.copy_data(source_table_name, archive_table_name)
         self._db.drop_table(source_table_name)
 
@@ -122,6 +124,10 @@ class DbController(object):
         table_name = self.table_name(table_suffix)
         self._db.drop_table(table_name)
         self._create_table(table_name)
+
+    def ensure_table_created(self, table_suffix: str):
+        table_name = self.table_name(table_suffix)
+        self._ensure_table_created(table_name)
 
     def insert_data(self, df: DataFrame, table_suffix: str):
         df = self._fetch_export_fields(df)
