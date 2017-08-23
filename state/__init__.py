@@ -9,12 +9,12 @@
   You may obtain a copy of the License at:
         https://yandex.com/legal/metrica_termsofuse/
 """
-from .state import State, AppIdState, InitializationSate
+from .state import State, AppIdState
 from .storage import StateStorage
 from .file_storage import FileStateStorage
 
 __all__ = (
-    "State", "AppIdState", "InitializationSate",
+    "State", "AppIdState",
     "StateStorage",
     "FileStateStorage",
 )

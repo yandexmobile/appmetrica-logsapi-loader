@@ -11,39 +11,19 @@
         https://yandex.com/legal/metrica_termsofuse/
 """
 from datetime import datetime, date
-from typing import Optional, List
-
-
-class InitializationSate(object):
-    __slots__ = [
-        "started_at",
-        "date_start",
-        "date_until",
-    ]
-
-    def __init__(self, started_at: datetime,
-                 date_start: date, date_until: date):
-        self.started_at = started_at
-        self.date_start = date_start
-        self.date_until = date_until
+from typing import Optional, List, Dict
 
 
 class AppIdState(object):
     __slots__ = [
         "app_id",
-        "inited",
-        "initialization_state",
-        "updated_until",
+        "date_updates",
     ]
 
     def __init__(self, app_id: str,
-                 inited: bool = False,
-                 initialization_state: Optional[InitializationSate] = None,
-                 updated_until: Optional[datetime] = None):
+                 date_updates: Optional[Dict[date, datetime]] = None):
         self.app_id = app_id
-        self.inited = inited
-        self.initialization_state = initialization_state
-        self.updated_until = updated_until
+        self.date_updates = date_updates or dict()
 
 
 class State(object):

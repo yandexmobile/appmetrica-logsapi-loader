@@ -64,6 +64,7 @@ def main():
         app_ids=settings.APP_IDS,
         update_interval=settings.UPDATE_INTERVAL,
         update_limit=settings.UPDATE_LIMIT,
+        fresh_limit=settings.FRESH_LIMIT
     )
     updates_controller = UpdatesController(
         scheduler=scheduler,

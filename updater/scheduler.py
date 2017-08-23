@@ -17,7 +17,7 @@ from typing import List, Optional, Generator
 
 import pandas as pd
 
-from state import StateStorage, AppIdState, InitializationSate
+from state import StateStorage, AppIdState
 from logs_api import LogsApiClient
 
 logger = logging.getLogger(__name__)
@@ -34,11 +34,13 @@ class UpdateRequest(object):
 
 class Scheduler(object):
     def __init__(self, state_storage: StateStorage, app_ids: List[str],
-                 update_limit: timedelta, update_interval: timedelta):
+                 update_limit: timedelta, update_interval: timedelta,
+                 fresh_limit: timedelta):
         self._state_storage = state_storage
         self._app_ids = app_ids
         self._update_limit = update_limit
         self._update_interval = update_interval
+        self._fresh_limit = fresh_limit
         self._state = None
 
     def _load_state(self):
@@ -57,43 +59,12 @@ class Scheduler(object):
             app_id_state = app_id_states[0]
         return app_id_state
 
-    def _start_initialization(self, app_id_state: AppIdState,
-                              date_start: date, date_until: date,
-                              now: datetime = None):
-        logger.debug('Initialization for {} is started'.format(
-            app_id_state.app_id
+    def _mark_date_updated(self, app_id_state: AppIdState, p_date: date,
+                           now: Optional[datetime] = None):
+        logger.debug('Data for {} of {} is updated'.format(
+            p_date, app_id_state.app_id
         ))
-        app_id_state.inited = False
-        app_id_state.initialization_state = InitializationSate(
-            now or datetime.now(),
-            date_start,
-            date_until
-        )
-        self._save_state()
-
-    def _mark_date_inited(self, app_id_state: AppIdState, date: date):
-        logger.debug('Updated date for {}: {}'.format(
-            app_id_state.app_id, date
-        ))
-        i_state = app_id_state.initialization_state
-        if i_state is not None and i_state.date_start <= date:
-            i_state.date_start = date + timedelta(days=1)
-        self._save_state()
-
-    def _finish_initialization(self, app_id_state: AppIdState):
-        logger.debug('Initialization for {} is finished'.format(
-            app_id_state.app_id
-        ))
-        app_id_state.inited = True
-        app_id_state.initialization_state = None
-        self._save_state()
-
-    def _mark_updated_until(self, app_id_state: AppIdState,
-                            date_until: datetime):
-        logger.debug('Data for {} is updated until: {}'.format(
-            app_id_state.app_id, date_until
-        ))
-        app_id_state.updated_until = date_until
+        app_id_state.date_updates[p_date] = now or datetime.now()
         self._save_state()
 
     def _finish_updates(self, now: datetime = None):
@@ -118,46 +89,28 @@ class Scheduler(object):
             logger.info('Sleep for {}'.format(wait_time))
             sleep(wait_time.total_seconds())
 
-    def _initialize(self, app_id_state: AppIdState) \
-            -> Generator[UpdateRequest, None, None]:
-        i_state = app_id_state.initialization_state
-        if i_state is None:
-            date_to = datetime.now().date()
-            date_from = date_to - self._update_limit
-            self._start_initialization(app_id_state, date_from, date_to)
-            i_state = app_id_state.initialization_state
-        dates = pd.date_range(i_state.date_start,
-                              i_state.date_until)
-        for pd_date in dates:
-            p_date = pd_date.to_pydatetime().date()  # type: date
-            datetime_since = datetime.combine(p_date, time.min)
-            datetime_till = datetime.combine(p_date, time.max)
-            yield UpdateRequest(app_id_state.app_id,
-                                datetime_since, datetime_till,
-                                LogsApiClient.DATE_DIMENSION_CREATE)
-            self._mark_date_inited(app_id_state, p_date)
-        received_since = i_state.started_at
-        received_until = datetime.now() - timedelta(hours=1)
-        yield UpdateRequest(app_id_state.app_id,
-                            received_since, received_until,
-                            LogsApiClient.DATE_DIMENSION_RECEIVE)
-        self._mark_updated_until(app_id_state, received_until)
-        self._finish_initialization(app_id_state)
-
-    def _update_step(self, app_id_state: AppIdState) \
-            -> Generator[UpdateRequest, None, None]:
-        received_since = app_id_state.updated_until + timedelta(seconds=1)
-        received_until = datetime.now() - timedelta(hours=1)
-        yield UpdateRequest(app_id_state.app_id,
-                            received_since, received_until,
-                            LogsApiClient.DATE_DIMENSION_RECEIVE)
-        self._mark_updated_until(app_id_state, received_until)
-
     def _step(self, app_id_state: AppIdState):
-        if app_id_state.inited:
-            return self._update_step(app_id_state)
-        else:
-            return self._initialize(app_id_state)
+        started_at = datetime.now()
+        date_to = started_at.date()
+        date_from = date_to - self._update_limit
+        for pd_date in pd.date_range(date_from, date_to):
+            p_date = pd_date.to_pydatetime().date()  # type: date
+            updated_at = app_id_state.date_updates.get(p_date)
+            if updated_at:
+                last_event_date = datetime.combine(p_date, time.max)
+                updated = started_at - updated_at < self._update_interval
+                fresh = updated_at - last_event_date < self._fresh_limit
+                if updated or not fresh:
+                    continue
+            datetime_since = datetime.combine(p_date, time.min)
+            datetime_until = datetime.combine(p_date, time.max)
+            yield UpdateRequest(
+                app_id_state.app_id,
+                datetime_since,
+                datetime_until,
+                LogsApiClient.DATE_DIMENSION_CREATE
+            )
+            self._mark_date_updated(app_id_state, p_date)
 
     def update_requests(self) \
             -> Generator[UpdateRequest, None, None]:
