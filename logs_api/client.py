@@ -13,7 +13,7 @@
 import datetime
 import json
 import logging
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
 import requests
 
@@ -56,9 +56,9 @@ class LogsApiClient(object):
         return create_date
 
     def logs_api_export(self, app_id: str, table: str, fields: List[str],
-                        date_since: datetime.datetime,
-                        date_until: datetime.datetime,
-                        date_dimension: str,
+                        date_since: Optional[datetime.datetime],
+                        date_until: Optional[datetime.datetime],
+                        date_dimension: Optional[str],
                         parts_count: int,
                         part_number: int,
                         force_recreate: bool):
@@ -70,12 +70,17 @@ class LogsApiClient(object):
         date_format = '%Y-%m-%d %H:%M:%S'
         params = {
             'application_id': app_id,
-            'date_since': date_since.strftime(date_format),
-            'date_until': date_until.strftime(date_format),
-            'date_dimension': date_dimension,
             'fields': ','.join(fields),
             'oauth_token': self.token
         }  # type:Dict[str, Any]
+        if date_since and date_until:
+            date_dimension = \
+                date_dimension or LogsApiClient.DATE_DIMENSION_CREATE
+            params.update({
+                'date_since': date_since.strftime(date_format),
+                'date_until': date_until.strftime(date_format),
+                'date_dimension': date_dimension,
+            })
         if parts_count > 1:
             params.update({
                 'parts_count': parts_count,

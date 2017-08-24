@@ -10,11 +10,23 @@
   You may obtain a copy of the License at:
         https://yandex.com/legal/metrica_termsofuse/
 """
-from typing import List, Tuple, Optional
+from typing import List, Tuple, Optional, Iterable
 
 from .declaration import sources
 from .field import Converter, Field
 from .source import Source
+
+
+class SchedulingDefinition(object):
+    def __init__(self, sources: Iterable[Source]):
+        self.date_required_sources = []
+        self.date_ignored_sources = []
+        for source in sources:
+            source_name = source.load_name
+            if source.date_ignored:
+                self.date_ignored_sources.append(source_name)
+            else:
+                self.date_required_sources.append(source_name)
 
 
 class LoadingDefinition(object):
@@ -31,7 +43,6 @@ class DbTableDefinition(object):
     def __init__(self, source: Source):
         self.table_name = source.db_name
         self.primary_keys = []
-        self.unique_keys = []
         self.column_types = dict()
         self.field_types = dict()
         self.export_fields = []
@@ -44,8 +55,6 @@ class DbTableDefinition(object):
                 self.sampling_field = field.db_name
             if field_name in source.key_field_names:
                 self.primary_keys.append(field.db_name)
-            if field_name not in source.unification_ignored_field_names:
-                self.unique_keys.append(field.db_name)
             self.field_types[field.db_name] = field.db_type
             self.column_types[field_name] = field.db_type
             self.export_fields.append(field_name)
@@ -75,11 +84,14 @@ class SourcesCollection(object):
     def source_names(self):
         return self._source_names
 
-    def loading_definition(self, source_name):
+    def scheduling_definition(self) -> SchedulingDefinition:
+        return SchedulingDefinition(self._sources.values())
+
+    def loading_definition(self, source_name) -> LoadingDefinition:
         return LoadingDefinition(self._sources[source_name])
 
-    def processing_definition(self, source_name):
+    def processing_definition(self, source_name) -> ProcessingDefinition:
         return ProcessingDefinition(self._sources[source_name])
 
-    def db_table_definition(self, source_name):
+    def db_table_definition(self, source_name) -> DbTableDefinition:
         return DbTableDefinition(self._sources[source_name])

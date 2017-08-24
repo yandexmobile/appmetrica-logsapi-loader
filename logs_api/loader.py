@@ -14,7 +14,7 @@ import datetime
 import logging
 import re
 import time
-from typing import List, Generator, Tuple
+from typing import List, Generator, Tuple, Optional
 
 import pandas as pd
 import requests
@@ -72,8 +72,10 @@ class Loader(object):
         return parts_count, part_number, progress, first_request
 
     def load(self, app_id: str, table: str, fields: List[str],
-             date_since: datetime.datetime, date_until: datetime.datetime,
-             date_dimension: str) -> Generator[DataFrame, None, None]:
+             date_since: Optional[datetime.datetime],
+             date_until: Optional[datetime.datetime],
+             date_dimension: Optional[str]) \
+            -> Generator[DataFrame, None, None]:
         parts_count = 1
         part_number = 0
         first_request = True

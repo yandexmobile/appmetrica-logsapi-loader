@@ -13,9 +13,9 @@
 import datetime
 import logging
 import time
-from typing import List
+from typing import Optional
 
-from fields import SourcesCollection
+from fields import SourcesCollection, ProcessingDefinition, LoadingDefinition
 from .scheduler import Scheduler, UpdateRequest
 from .db_controller import DbController
 from .updater import Updater
@@ -33,58 +33,61 @@ class UpdatesController(object):
         self._sources_collection = sources_collection
         self._db_controllers_collection = db_controllers_collection
 
-    @staticmethod
-    def _table_suffix(app_id: str, date: datetime.date):
-        return '{}_{}'.format(app_id, date.strftime('%Y%m%d'))
-
-    def _load_into_table(self, source: str, update_request: UpdateRequest,
-                         table_suffix: str, db_controller: DbController):
+    def _load_into_table(self, app_id: str, date: Optional[datetime.date],
+                         table_suffix: str,
+                         processing_definition: ProcessingDefinition,
+                         loading_definition: LoadingDefinition,
+                         db_controller: DbController):
         logger.info('Loading "{date}" into "{suffix}" of "{source}" '
                     'for "{app_id}"'.format(
-            date=update_request.date,
-            source=source,
-            app_id=update_request.app_id,
+            date=date,
+            source=loading_definition.source_name,
+            app_id=app_id,
             suffix=table_suffix
         ))
+        self._updater.update(app_id, date, table_suffix, db_controller,
+                             processing_definition, loading_definition)
 
-        self._updater.update(
-            update_request.app_id,
-            update_request.date,
-            table_suffix,
-            db_controller,
-            self._sources_collection.processing_definition(source),
-            self._sources_collection.loading_definition(source)
-        )
-
-    def _archive(self, source: str, update_request: UpdateRequest,
-                 table_suffix: str):
+    def _archive(self, source: str, app_id: str, date: datetime.date,
+                 table_suffix: str, db_controller: DbController):
         logger.info('Archiving "{date}" of "{source}" for "{app_id}"'.format(
-            date=update_request.date,
+            date=date,
             source=source,
-            app_id=update_request.app_id
+            app_id=app_id
         ))
-        db_controller = self._db_controllers_collection.db_controller(source)
         db_controller.archive_table(table_suffix)
 
     def _update(self, update_request: UpdateRequest):
+        source = update_request.source
+        app_id = update_request.app_id
+        date = update_request.date
         update_type = update_request.update_type
-        table_suffix = self._table_suffix(
-            update_request.app_id,
-            update_request.date
-        )
-        for source in self._sources_collection.source_names():
-            db_controller = \
-                self._db_controllers_collection.db_controller(source)
-            if update_type == UpdateRequest.LOAD:
-                db_controller.recreate_table(table_suffix)
-                self._load_into_table(source, update_request, table_suffix,
-                                      db_controller)
-            elif update_type == UpdateRequest.ARCHIVE:
-                self._archive(source, update_request, table_suffix)
-            elif update_type == UpdateRequest.LOAD_INTO_ARCHIVE:
-                self._load_into_table(source, update_request,
-                                      DbController.ARCHIVE_SUFFIX,
-                                      db_controller)
+        table_suffix = '{}_{}'.format(app_id, date.strftime('%Y%m%d'))
+
+        loading_definition = \
+            self._sources_collection.loading_definition(source)
+        processing_definition = \
+            self._sources_collection.processing_definition(source)
+        db_controller = \
+            self._db_controllers_collection.db_controller(source)
+
+        if update_type == UpdateRequest.LOAD_ONE_DATE:
+            db_controller.recreate_table(table_suffix)
+            self._load_into_table(app_id, date, table_suffix,
+                                  processing_definition, loading_definition,
+                                  db_controller)
+        elif update_type == UpdateRequest.ARCHIVE:
+            self._archive(source, app_id, date, table_suffix, db_controller)
+        elif update_type == UpdateRequest.LOAD_INTO_ARCHIVE:
+            self._load_into_table(app_id, date, DbController.ARCHIVE_SUFFIX,
+                                  processing_definition, loading_definition,
+                                  db_controller)
+        elif update_type == UpdateRequest.LOAD_DATE_IGNORED:
+            table_suffix = '{}_{}'.format(app_id, 'latest')
+            db_controller.recreate_table(table_suffix)
+            self._load_into_table(app_id, None, table_suffix,
+                                  processing_definition, loading_definition,
+                                  db_controller)
 
     def _step(self):
         update_requests = self._scheduler.update_requests()

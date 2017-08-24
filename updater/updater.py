@@ -12,7 +12,7 @@
 """
 import datetime
 import logging
-from typing import Dict
+from typing import Dict, Optional
 
 import pandas as pd
 from pandas import DataFrame, Series
@@ -67,20 +67,22 @@ class Updater(object):
         return df
 
     def _load(self, app_id: str, loading_definition: LoadingDefinition,
-              date_from: datetime.datetime,
-              date_to: datetime.datetime,
-              date_dimension: str):
+              date_from: Optional[datetime.datetime],
+              date_to: Optional[datetime.datetime],
+              date_dimension: Optional[str]):
         df_it = self._loader.load(app_id, loading_definition.source_name,
                                   loading_definition.fields,
                                   date_from, date_to, date_dimension)
         return df_it
 
-    def update(self, app_id: str, date: datetime.date,
+    def update(self, app_id: str, date: Optional[datetime.date],
                table_suffix: str, db_controller: DbController,
                processing_definition: ProcessingDefinition,
                loading_definition: LoadingDefinition):
-        since = datetime.datetime.combine(date, datetime.time.min)
-        until = datetime.datetime.combine(date, datetime.time.max)
+        since, until = None, None
+        if date:
+            since = datetime.datetime.combine(date, datetime.time.min)
+            until = datetime.datetime.combine(date, datetime.time.max)
         db_controller.ensure_table_created(table_suffix)
 
         df_it = self._load(app_id, loading_definition, since, until,

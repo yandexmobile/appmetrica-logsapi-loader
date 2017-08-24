@@ -10,11 +10,12 @@
         https://yandex.com/legal/metrica_termsofuse/
 """
 from .collection import SourcesCollection, DbTableDefinition, \
-    ProcessingDefinition, LoadingDefinition
+    ProcessingDefinition, LoadingDefinition, SchedulingDefinition
 from .field import Field, Converter
 
 __all__ = (
     "SourcesCollection",
-    "DbTableDefinition", "ProcessingDefinition", "LoadingDefinition"
+    "DbTableDefinition", "ProcessingDefinition", "LoadingDefinition",
+    "SchedulingDefinition",
     "Field", "Converter",
 )
