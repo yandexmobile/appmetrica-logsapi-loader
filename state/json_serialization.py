@@ -21,11 +21,11 @@ from .state import State, AppIdState
 DATE_FORMAT = '%Y-%m-%d'
 
 
-def _from_unix_time(u: float):
+def _from_unix_time(u: int) -> datetime:
     return datetime.utcfromtimestamp(u)
 
 
-def _to_unix_time(d: datetime):
+def _to_unix_time(d: datetime) -> int:
     return timegm(d.timetuple())
 
 

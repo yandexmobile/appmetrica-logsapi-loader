@@ -40,7 +40,7 @@ class UpdatesController(object):
                          db_controller: DbController):
         logger.info('Loading "{date}" into "{suffix}" of "{source}" '
                     'for "{app_id}"'.format(
-            date=date,
+            date=date or 'latest',
             source=loading_definition.source_name,
             app_id=app_id,
             suffix=table_suffix
