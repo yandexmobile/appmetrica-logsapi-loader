@@ -35,6 +35,7 @@ _escape_characters = {
 class DbController(object):
     ARCHIVE_SUFFIX = 'old'
     ALL_SUFFIX = 'all'
+    LATEST_SUFFIX = 'all'
 
     def __init__(self, db: Database, definition: DbTableDefinition):
         self._db = db

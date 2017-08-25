@@ -62,7 +62,10 @@ class UpdatesController(object):
         app_id = update_request.app_id
         date = update_request.date
         update_type = update_request.update_type
-        table_suffix = '{}_{}'.format(app_id, date.strftime('%Y%m%d'))
+        if date is not None:
+            table_suffix = '{}_{}'.format(app_id, date.strftime('%Y%m%d'))
+        else:
+            table_suffix = '{}_{}'.format(app_id, DbController.LATEST_SUFFIX)
 
         loading_definition = \
             self._sources_collection.loading_definition(source)
@@ -83,7 +86,6 @@ class UpdatesController(object):
                                   processing_definition, loading_definition,
                                   db_controller)
         elif update_type == UpdateRequest.LOAD_DATE_IGNORED:
-            table_suffix = '{}_{}'.format(app_id, 'latest')
             db_controller.recreate_table(table_suffix)
             self._load_into_table(app_id, None, table_suffix,
                                   processing_definition, loading_definition,
