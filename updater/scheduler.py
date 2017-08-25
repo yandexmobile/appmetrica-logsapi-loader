@@ -38,7 +38,7 @@ class UpdateRequest(object):
 
 
 class Scheduler(object):
-    ARCHIVED_DATE = datetime(3000, 1, 1, tzinfo=datetime.now().tzinfo)
+    ARCHIVED_DATE = datetime(3000, 1, 1)
 
     def __init__(self, state_storage: StateStorage,
                  scheduling_definition: SchedulingDefinition,

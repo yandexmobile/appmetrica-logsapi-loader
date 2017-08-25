@@ -10,6 +10,7 @@
   You may obtain a copy of the License at:
         https://yandex.com/legal/metrica_termsofuse/
 """
+from calendar import timegm
 from datetime import datetime, date
 from json import JSONEncoder, JSONDecoder
 from typing import Dict, Any
@@ -20,10 +21,18 @@ from .state import State, AppIdState
 DATE_FORMAT = '%Y-%m-%d'
 
 
+def _from_unix_time(u: float):
+    return datetime.utcfromtimestamp(u)
+
+
+def _to_unix_time(d: datetime):
+    return timegm(d.timetuple())
+
+
 class StateJSONEncoder(JSONEncoder):
     def default(self, o):
         if isinstance(o, datetime):
-            return o.timestamp()
+            return _to_unix_time(o)
         elif isinstance(o, date):
             return o.strftime(DATE_FORMAT)
         elif isinstance(o, AppIdState):
@@ -46,7 +55,7 @@ def _parse_date_updates(json_object: Dict[str, Any]):
     for target_date_str, update_ts in json_object.items():
         target_dt = datetime.strptime(target_date_str, DATE_FORMAT)
         target_date = target_dt.date()
-        update_dt = datetime.utcfromtimestamp(update_ts)
+        update_dt = _from_unix_time(update_ts)
         date_updates[target_date] = update_dt
     return date_updates
 
@@ -59,8 +68,7 @@ def _parse_app_id_state(json_object: Dict[str, Any]):
 def _parse_state(json_object: Dict[str, Any]):
     last_update_time = None
     if json_object["last_update_time"] is not None:
-        last_update_time = \
-            datetime.utcfromtimestamp(json_object["last_update_time"])
+        last_update_time = _from_unix_time(json_object["last_update_time"])
     app_id_states = []
     if "app_id_states" in json_object.keys():
         app_id_states = map(_parse_app_id_state, json_object["app_id_states"])

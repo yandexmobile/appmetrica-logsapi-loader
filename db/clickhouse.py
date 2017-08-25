@@ -202,6 +202,6 @@ class ClickhouseDatabase(Database):
                         unique_fields: List[str], temp_table_name: str):
         self.drop_table(temp_table_name)
         self._create_table_like(table_name, temp_table_name)
-        self._insert(temp_table_name, tsv_content)
+        self.insert(temp_table_name, tsv_content)
         self._copy_data_distinct(temp_table_name, table_name, unique_fields)
         pass
