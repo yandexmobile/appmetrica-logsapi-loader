@@ -105,6 +105,3 @@ class Loader(object):
                 parts_count, part_number, progress, first_request = \
                     self._process_error(e.status_code, e.text, parts_count,
                                         part_number, progress, first_request)
-            except ProtocolError as e:
-                logger.warning(e)
-                continue

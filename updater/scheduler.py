@@ -26,7 +26,6 @@ logger = logging.getLogger(__name__)
 class UpdateRequest(object):
     ARCHIVE = 'archive'
     LOAD_ONE_DATE = 'load_one_date'
-    LOAD_INTO_ARCHIVE = 'load_into_archive'
     LOAD_DATE_IGNORED = 'load_date_ignored'
 
     def __init__(self, source: str, app_id: str, p_date: Optional[date],
@@ -124,6 +123,7 @@ class Scheduler(object):
     def _update_date(self, app_id_state: AppIdState, p_date: date,
                      started_at: datetime) \
             -> Generator[UpdateRequest, None, None]:
+        sources = self._definition.date_required_sources
         updated_at = app_id_state.date_updates.get(p_date)
         last_event_date = datetime.combine(p_date, time.max)
         if updated_at:
@@ -131,16 +131,16 @@ class Scheduler(object):
             if updated:
                 return
         last_event_delta = (updated_at or started_at) - last_event_date
+        for source in sources:
+            yield UpdateRequest(source, app_id_state.app_id, p_date,
+                                UpdateRequest.LOAD_ONE_DATE)
+        self._mark_date_updated(app_id_state, p_date)
+
         fresh = last_event_delta < self._fresh_limit
-        if fresh:
-            for source in self._definition.date_required_sources:
+        if not fresh:
+            for source in sources:
                 yield UpdateRequest(source, app_id_state.app_id, p_date,
-                                    UpdateRequest.LOAD_ONE_DATE)
-            self._mark_date_updated(app_id_state, p_date)
-        else:
-            for source in self._definition.date_required_sources:
-                yield UpdateRequest(source, app_id_state.app_id, p_date,
-                                    UpdateRequest.LOAD_INTO_ARCHIVE)
+                                    UpdateRequest.ARCHIVE)
             self._mark_date_archived(app_id_state, p_date)
 
     def _update_date_ignored_fields(self, app_id: str):

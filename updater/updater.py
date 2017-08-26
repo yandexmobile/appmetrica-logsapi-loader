@@ -83,7 +83,7 @@ class Updater(object):
         if date:
             since = datetime.datetime.combine(date, datetime.time.min)
             until = datetime.datetime.combine(date, datetime.time.max)
-        db_controller.ensure_table_created(table_suffix)
+        db_controller.recreate_table(table_suffix)
 
         df_it = self._load(app_id, loading_definition, since, until,
                            LogsApiClient.DATE_DIMENSION_CREATE)

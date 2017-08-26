@@ -75,18 +75,12 @@ class UpdatesController(object):
             self._db_controllers_collection.db_controller(source)
 
         if update_type == UpdateRequest.LOAD_ONE_DATE:
-            db_controller.recreate_table(table_suffix)
             self._load_into_table(app_id, date, table_suffix,
                                   processing_definition, loading_definition,
                                   db_controller)
         elif update_type == UpdateRequest.ARCHIVE:
             self._archive(source, app_id, date, table_suffix, db_controller)
-        elif update_type == UpdateRequest.LOAD_INTO_ARCHIVE:
-            self._load_into_table(app_id, date, DbController.ARCHIVE_SUFFIX,
-                                  processing_definition, loading_definition,
-                                  db_controller)
         elif update_type == UpdateRequest.LOAD_DATE_IGNORED:
-            db_controller.recreate_table(table_suffix)
             self._load_into_table(app_id, None, table_suffix,
                                   processing_definition, loading_definition,
                                   db_controller)

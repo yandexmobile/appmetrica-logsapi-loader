@@ -39,8 +39,8 @@ class ClickhouseDatabase(Database):
     def _query_clickhouse(self, query_text: str, **params):
         log_data = query_text
         if len(log_data) > self.QUERY_LOG_LIMIT:
-            log_data = log_data[:self.QUERY_LOG_LIMIT].replace('\n',
-                                                               ' ') + '[...]'
+            log_data = log_data[:self.QUERY_LOG_LIMIT] + '[...]'
+        log_data = log_data.replace('\n', ' ')
         logger.debug('Query ClickHouse: {} >>> {}'.format(params, log_data))
         auth = self._get_clickhouse_auth()
         r = requests.post(self.url, data=query_text, params=params, auth=auth)
@@ -159,7 +159,7 @@ class ClickhouseDatabase(Database):
                 'CREATE TABLE {}.{}'.format(self.db_name, source_table),
                 'CREATE TABLE {}.{}'.format(self.db_name, new_table)
             )
-            self.query(new_query)
+            self._query_clickhouse(new_query)
 
     def insert(self, table_name: str, tsv_content: str):
         query = 'INSERT INTO {db}.{table} FORMAT TabSeparatedWithNames' \
@@ -176,7 +176,7 @@ class ClickhouseDatabase(Database):
             from_table=source_table,
             to_table=target_table,
         )
-        self.query(query)
+        self._query_clickhouse(query)
 
     def _copy_data_distinct(self, source_table: str, target_table: str,
                             unique_fields: List[str]):
@@ -196,7 +196,7 @@ class ClickhouseDatabase(Database):
             to_table=target_table,
             unique_fields=', '.join(unique_fields)
         )
-        self.query(query)
+        self._query_clickhouse(query)
 
     def insert_distinct(self, table_name: str, tsv_content: str,
                         unique_fields: List[str], temp_table_name: str):
