@@ -10,14 +10,12 @@ Also you should copy app's numeric IDs. You could find them in General Settings 
 
 ### Start manualy
 ```bash
-$ docker run -d --name clickhouse --ulimit nofile=262144:262144 yandex/clickhouse-server
-$ docker run -d --name appmetrica-funnels --link clickhouse -p 5000:5000 \
+docker run -d --name clickhouse -p 8123:8123 --ulimit nofile=262144:262144 yandex/clickhouse-server
+docker run -d --name appmetrica-logsapi-loader --link clickhouse \
     -e 'CH_HOST=http://clickhouse:8123' \
     -e 'TOKEN=YOUR_OAUTH_TOKEN' \
     -e 'APP_IDS=["YOUR_APP_ID"]' \
-    -e 'SOURCE_NAME=events' \
-    -e 'FIELDS=["event_name","event_timestamp","appmetrica_device_id","os_name","country_iso_code","city"]' \
-    yandex/appmetrica-funnels
+    yandex/appmetrica-logsapi-loader
 ```
 
 More information about [ClickHouse server image][CLICKHOUSE-SERVER].
@@ -25,9 +23,9 @@ More information about [ClickHouse server image][CLICKHOUSE-SERVER].
 ### Start with Docker Compose
 Download this repository and run:
 ```bash
-$ echo 'TOKEN=YOUR_OAUTH_TOKEN' > .env
-$ echo 'APP_IDS=["YOUR_APP_ID"]' >> .env
-$ docker-compose up -d
+echo 'TOKEN=YOUR_OAUTH_TOKEN' > .env
+echo 'APP_IDS=["YOUR_APP_ID"]' >> .env
+docker-compose up -d
 ```
 
 This commands create `.env` file with variables required by script. 
@@ -39,22 +37,22 @@ All configuration properties can be passed through environment variables.
 #### Main variables
 * `TOKEN` - *(required)* Logs API OAuth token.
 * `APP_IDS` - *(required)* JSON-array of numeric AppMetrica app identifiers.
+* `SOURCES` - Logs API endpoints to download from. See [available endpoints][LOGSAPI-ENDPOINTS].
 
 #### ClickHouse related
 * `CH_HOST` - Host of ClickHouse DB to store events. (default: `http://localhost:8123`)
 * `CH_USER` - Login of ClickHouse DB. (default: empty)
 * `CH_PASSWORD` - Password of ClickHouse DB. (default: empty)
 * `CH_DATABASE` - Database in ClickHouse to create tables in. (default: `mobile`)
-* `CH_TABLE` - Table in database to upload in. (default: `events_all`)
 
 #### LogsAPI related
-* `LOGS_API_HOST` - Host of LogsAPI api. (default: `https://api.appmetrica.yandex.ru`)
+* `LOGS_API_HOST` - Base host of LogsAPI endpoints. (default: `https://api.appmetrica.yandex.ru`)
 * `REQUEST_CHUNK_ROWS` - Size of chunks to process at once. (default: `10000`)
 * `ALLOW_CACHED` - Flag that allows cached LogsAPI data. Possible values: `0`, `1`. (default: `0`)
 
 #### Scheduling configuration
 * `UPDATE_LIMIT` - Count of days for the first events fetch. (default: `30`)
-* `FRESH_LIMIT` - Count of days for which events are treated as fresh. (default: `7`)
+* `FRESH_LIMIT` - Count of days which still can have new events. (default: `7`)
 * `UPDATE_INTERVAL` - Interval of time in hours between events fetches from Logs API. (default: `12`)
 
 #### Other variables
