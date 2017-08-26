@@ -10,10 +10,9 @@
   You may obtain a copy of the License at:
         https://yandex.com/legal/metrica_termsofuse/
 """
-from typing import List, Tuple, Optional, Iterable
+from typing import List, Iterable
 
 from .declaration import sources
-from .field import Converter, Field
 from .source import Source
 
 

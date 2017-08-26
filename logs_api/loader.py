@@ -19,7 +19,6 @@ from typing import List, Generator, Tuple, Optional
 import pandas as pd
 import requests
 from pandas import DataFrame
-from urllib3.exceptions import ProtocolError
 
 from .client import LogsApiClient, LogsApiError
 

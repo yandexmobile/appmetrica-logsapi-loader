@@ -36,8 +36,8 @@ class LogsApiClient(object):
         self.token = token
         self.host = host
         self._user_agent = '{app}/{version}'.format(
-            app = version.__app__,
-            version = version.__version__,
+            app=version.__app__,
+            version=version.__version__,
         )
 
     def app_creation_date(self, app_id: str) -> str:
@@ -83,12 +83,10 @@ class LogsApiClient(object):
             'oauth_token': self.token
         }  # type:Dict[str, Any]
         if date_since and date_until:
-            date_dimension = \
-                date_dimension or LogsApiClient.DATE_DIMENSION_CREATE
             params.update({
                 'date_since': date_since.strftime(date_format),
                 'date_until': date_until.strftime(date_format),
-                'date_dimension': date_dimension,
+                'date_dimension': date_dimension or self.DATE_DIMENSION_CREATE,
             })
         if parts_count > 1:
             params.update({

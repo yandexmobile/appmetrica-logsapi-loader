@@ -85,6 +85,3 @@ def _hook(json_object):
 class StateJSONDecoder(JSONDecoder):
     def __init__(self):
         super().__init__(object_hook=_hook)
-
-    def bla(self):
-        pass

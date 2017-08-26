@@ -14,12 +14,9 @@ import datetime
 import logging
 from typing import Dict, Optional
 
-import pandas as pd
 from pandas import DataFrame, Series
 
-from db import Database
-from fields import SourcesCollection, Converter, ProcessingDefinition, \
-    LoadingDefinition
+from fields import Converter, ProcessingDefinition, LoadingDefinition
 from logs_api import Loader, LogsApiClient
 from .db_controller import DbController
 
