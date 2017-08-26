@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-  updater.py
+  db_controllers_collection.py
 
   This file is a part of the AppMetrica.
 

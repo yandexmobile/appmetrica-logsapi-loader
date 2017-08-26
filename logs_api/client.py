@@ -17,6 +17,8 @@ from typing import List, Dict, Any, Optional
 
 import requests
 
+import version
+
 logger = logging.getLogger(__name__)
 
 
@@ -33,6 +35,10 @@ class LogsApiClient(object):
     def __init__(self, token: str, host: str):
         self.token = token
         self.host = host
+        self._user_agent = '{app}/{version}'.format(
+            app = version.__app__,
+            version = version.__version__,
+        )
 
     def app_creation_date(self, app_id: str) -> str:
         url = '{host}/management/v1/application/{app_id}'.format(
@@ -42,8 +48,11 @@ class LogsApiClient(object):
         params = {
             'oauth_token': self.token
         }
+        headers = {
+            'User-Agent': self._user_agent
+        }
 
-        r = requests.get(url, params=params)
+        r = requests.get(url, params=params, headers=headers)
         create_date = None
         try:
             if r.status_code == 200:
@@ -88,6 +97,7 @@ class LogsApiClient(object):
             })
 
         headers = {
+            'User-Agent': self._user_agent,
             'Accept-Encoding': 'gzip',
         }
         if force_recreate:
