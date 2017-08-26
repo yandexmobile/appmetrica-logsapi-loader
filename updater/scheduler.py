@@ -97,7 +97,7 @@ class Scheduler(object):
             -> Optional[timedelta]:
         if not self._state.last_update_time:
             return None
-        now = now or datetime.utcnow()
+        now = now or datetime.now()
         delta = self._state.last_update_time - now + update_interval
         if delta.total_seconds() < 0:
             return None
