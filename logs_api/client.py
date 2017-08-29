@@ -79,8 +79,7 @@ class LogsApiClient(object):
         date_format = '%Y-%m-%d %H:%M:%S'
         params = {
             'application_id': app_id,
-            'fields': ','.join(fields),
-            'oauth_token': self.token
+            'fields': ','.join(fields)
         }  # type:Dict[str, Any]
         if date_since and date_until:
             params.update({
@@ -97,6 +96,7 @@ class LogsApiClient(object):
         headers = {
             'User-Agent': self._user_agent,
             'Accept-Encoding': 'gzip',
+            'Authorization': 'OAuth {}'.format(self.token)
         }
         if force_recreate:
             headers['Cache-Control'] = 'no-cache'
