@@ -47,7 +47,7 @@ All configuration properties can be passed through environment variables.
 
 #### LogsAPI related
 * `LOGS_API_HOST` - Base host of LogsAPI endpoints. (default: `https://api.appmetrica.yandex.ru`)
-* `REQUEST_CHUNK_ROWS` - Size of chunks to process at once. (default: `10000`)
+* `REQUEST_CHUNK_ROWS` - Size of chunks to process at once. (default: `25000`)
 * `ALLOW_CACHED` - Flag that allows cached LogsAPI data. Possible values: `0`, `1`. (default: `0`)
 
 #### Scheduling configuration
