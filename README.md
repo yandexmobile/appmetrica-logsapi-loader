@@ -10,25 +10,27 @@ Also you should copy app's numeric IDs. You could find them in General Settings 
 
 ### Start manualy
 ```bash
-docker run -d --name clickhouse -p 8123:8123 --ulimit nofile=262144:262144 yandex/clickhouse-server
-docker run -d --name appmetrica-logsapi-loader --link clickhouse \
-    -e 'CH_HOST=http://clickhouse:8123' \
-    -e 'TOKEN=YOUR_OAUTH_TOKEN' \
-    -e 'APP_IDS=["YOUR_APP_ID"]' \
+docker run -d \
+    --name clickhouse \
+    yandex/clickhouse-server
+docker run -d \ 
+    --name appmetrica-logsapi-loader \
+    --link clickhouse \
+    --env 'CH_HOST=http://clickhouse:8123' \
+    --env 'TOKEN=YOUR_OAUTH_TOKEN' \
+    --env 'APP_IDS=["YOUR_APP_ID"]' \
     yandex/appmetrica-logsapi-loader
 ```
 
 More information about [ClickHouse server image][CLICKHOUSE-SERVER].
 
 ### Start with Docker Compose
-Download this repository and run:
+Download this repository *(or just `docker-compose.yml` file)* and run:
 ```bash
-echo 'TOKEN=YOUR_OAUTH_TOKEN' > .env
-echo 'APP_IDS=["YOUR_APP_ID"]' >> .env
-docker-compose up -d
-```
-
-This commands create `.env` file with variables required by script. 
+TOKEN=YOUR_OAUTH_TOKEN \
+    APP_IDS='["YOUR_APP_ID"]' \
+    docker-compose up -d
+``` 
 
 ## Configuration
 

@@ -1,10 +1,11 @@
 version: '3'
 services:
   loader:
+    image: 'yandex/appmetrica-logsapi-loader'
     build: './'
     environment:
      - TOKEN=${TOKEN}
-     - APP_IDS=${API_KEYS}
+     - APP_IDS=${APP_IDS}
      - CH_HOST=http://db:8123
     depends_on:
      - db
