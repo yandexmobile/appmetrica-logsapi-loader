@@ -25,6 +25,10 @@ from .client import LogsApiClient, LogsApiError
 logger = logging.getLogger(__name__)
 
 
+class LogsApiPartsCountError(LogsApiError):
+    pass
+
+
 class Loader(object):
     def __init__(self, client: LogsApiClient, chunk_size: int,
                  allow_cached: bool = False):
@@ -42,8 +46,8 @@ class Loader(object):
                            iterator=True)
 
     def _process_error(self, status_code: int, text: str, parts_count: int,
-                       part_number: int, progress: int, first_request: bool) \
-            -> Tuple[int, int, int, bool]:
+                       progress: int, first_request: bool) \
+            -> Tuple[int, bool]:
         logger.debug(text)
         if status_code == 202:
             first_request = False
@@ -59,23 +63,21 @@ class Loader(object):
         elif status_code == 429:
             logger.info('Too many requests. Waiting...')
             time.sleep(60)
-        elif status_code == 400 \
-                and 'Try to use more parts.' in text:
-            parts_count *= 2
-            part_number = 0
-            logger.info('Request is too big. Parts count: {}'.format(
-                parts_count
+        elif status_code == 400 and 'Try to use more parts.' in text:
+            logger.info('{}. Parts count: {}.'.format(
+                text, parts_count
             ))
+            raise LogsApiPartsCountError(status_code, text)
         else:
             raise ValueError('[{}] {}'.format(status_code, text))
-        return parts_count, part_number, progress, first_request
+        return progress, first_request
 
     def load(self, app_id: str, table: str, fields: List[str],
              date_since: Optional[datetime.datetime],
              date_until: Optional[datetime.datetime],
-             date_dimension: Optional[str]) \
+             date_dimension: Optional[str],
+             parts_count: int = 1) \
             -> Generator[DataFrame, None, None]:
-        parts_count = 1
         part_number = 0
         first_request = True
         progress = None
@@ -101,6 +103,6 @@ class Loader(object):
                     logger.info('Lines loaded: {}'.format(lines_count))
                 part_number += 1
             except LogsApiError as e:
-                parts_count, part_number, progress, first_request = \
+                progress, first_request = \
                     self._process_error(e.status_code, e.text, parts_count,
-                                        part_number, progress, first_request)
+                                        progress, first_request)

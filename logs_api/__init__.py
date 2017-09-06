@@ -10,9 +10,9 @@
         https://yandex.com/legal/metrica_termsofuse/
 """
 from .client import LogsApiClient
-from .loader import Loader
+from .loader import Loader, LogsApiPartsCountError
 
 __all__ = (
     "LogsApiClient",
-    "Loader",
+    "Loader", "LogsApiPartsCountError",
 )
