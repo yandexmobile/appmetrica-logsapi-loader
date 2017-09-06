@@ -13,7 +13,7 @@ Also you should copy app's numeric IDs. You could find them in General Settings 
 docker run -d \
     --name clickhouse \
     yandex/clickhouse-server
-docker run -d \ 
+docker run -d \
     --name appmetrica-logsapi-loader \
     --link clickhouse \
     --env 'CH_HOST=http://clickhouse:8123' \
