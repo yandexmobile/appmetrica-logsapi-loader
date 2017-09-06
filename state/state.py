@@ -28,11 +28,13 @@ class AppIdState(object):
 
 class State(object):
     __slots__ = [
+        "version",
         "last_update_time",
         "app_id_states",
     ]
 
     def __init__(self, last_update_time: Optional[datetime] = None,
                  app_id_states: Optional[List[AppIdState]] = None):
+        self.version = 1
         self.last_update_time = last_update_time
         self.app_id_states = app_id_states or []  # type: List[AppIdState]

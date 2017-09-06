@@ -7,6 +7,8 @@ services:
      - TOKEN=${TOKEN}
      - APP_IDS=${APP_IDS}
      - CH_HOST=http://db:8123
+    volumes:
+     - loader-data:/usr/src/data
     depends_on:
      - db
   db:
@@ -14,4 +16,5 @@ services:
     volumes:
       - db-data:/var/lib/clickhouse
 volumes:
+  loader-data:
   db-data:

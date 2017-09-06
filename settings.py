@@ -19,6 +19,9 @@ from dotenv import load_dotenv
 dotenv_path = join(dirname(__file__), '.env')
 load_dotenv(dotenv_path)
 
+DEFAULT_STATE_FILE_PATH = join(dirname(__file__), 'data', 'state.json')
+DEFAULT_LOGS_API_HOST = 'https://api.appmetrica.yandex.ru'
+
 DEBUG = environ.get('DEBUG', '0') == '1'
 
 TOKEN = environ['TOKEN']
@@ -30,9 +33,9 @@ FRESH_LIMIT = timedelta(days=int(environ.get('FRESH_LIMIT', '7')))
 UPDATE_INTERVAL = timedelta(hours=int(environ.get('UPDATE_INTERVAL', '12')))
 REQUEST_CHUNK_ROWS = int(environ.get('REQUEST_CHUNK_ROWS', '25000'))
 
-STATE_FILE_PATH = environ.get('STATE_FILE_PATH', join(dirname(__file__), 'state.json'))
+STATE_FILE_PATH = environ.get('STATE_FILE_PATH', DEFAULT_STATE_FILE_PATH)
 
-LOGS_API_HOST = environ.get('LOGS_API_HOST', 'https://api.appmetrica.yandex.ru')
+LOGS_API_HOST = environ.get('LOGS_API_HOST', DEFAULT_LOGS_API_HOST)
 ALLOW_CACHED = environ.get('ALLOW_CACHED', '0') == '1'
 
 CH_HOST = environ.get('CH_HOST', 'http://localhost:8123')

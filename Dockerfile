@@ -8,4 +8,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . /usr/src
 
+VOLUME /usr/src/data
+
 CMD [ "python", "./run.py" ]
