@@ -28,8 +28,8 @@ More information about [ClickHouse server image][CLICKHOUSE-SERVER].
 Download this repository *(or just `docker-compose.yml` file)* and run:
 ```bash
 TOKEN=YOUR_OAUTH_TOKEN \
-    APP_IDS='["YOUR_APP_ID"]' \
-    docker-compose up -d
+APP_IDS='["YOUR_APP_ID"]' \
+docker-compose up -d
 ``` 
 
 ## Configuration
@@ -59,7 +59,7 @@ All configuration properties can be passed through environment variables.
 
 #### Other variables
 * `DEBUG` - Enables extended logging. Possible values: `0`, `1`. (default: `0`)
-* `STATE_FILE_PATH` - Path to file with script state. (default: `state.json`)
+* `STATE_FILE_PATH` - Path to file with script state. (default: `data/state.json`)
 
 ## License
 License agreement on use of Yandex AppMetrica is available at [EULA site][LICENSE]
