@@ -24,8 +24,9 @@ logger = logging.getLogger(__name__)
 
 
 class Updater(object):
-    def __init__(self, loader: Loader):
+    def __init__(self, loader: Loader, parts_count: Dict[str, int]):
         self._loader = loader
+        self._min_parts_count = parts_count
 
     @staticmethod
     def _ensure_types(df: DataFrame, types: Dict[str, str]) -> DataFrame:
@@ -98,7 +99,7 @@ class Updater(object):
             since = datetime.datetime.combine(date, datetime.time.min)
             until = datetime.datetime.combine(date, datetime.time.max)
 
-        parts_count = 1
+        parts_count = self._min_parts_count.get(db_controller.definition.table_name, 1)
         is_loading_completed = False
         while not is_loading_completed:
             try:
@@ -108,3 +109,4 @@ class Updater(object):
                 is_loading_completed = True
             except LogsApiPartsCountError:
                 parts_count *= 2
+                logger.warning("Parts count error, increasing to {}.".format(parts_count))

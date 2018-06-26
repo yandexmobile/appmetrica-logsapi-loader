@@ -60,7 +60,8 @@ def main():
         file_name=settings.STATE_FILE_PATH
     )
     updater = Updater(
-        loader=logs_api_loader
+        loader=logs_api_loader,
+        parts_count=settings.PARTS_COUNT
     )
     scheduler = Scheduler(
         state_storage=state_storage,

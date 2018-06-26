@@ -60,6 +60,11 @@ class DbController(object):
     def primary_keys(self):
         return self._definition.primary_keys
 
+    @property
+    def definition(self):
+        return self._definition
+
+
     def _prepare_db(self):
         if not self._db.database_exists():
             self._db.create_database()
