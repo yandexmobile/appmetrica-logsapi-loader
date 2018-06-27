@@ -51,6 +51,9 @@ All configuration properties can be passed through environment variables.
 * `LOGS_API_HOST` - Base host of LogsAPI endpoints. (default: `https://api.appmetrica.yandex.ru`)
 * `REQUEST_CHUNK_ROWS` - Size of chunks to process at once. (default: `25000`)
 * `ALLOW_CACHED` - Flag that allows cached LogsAPI data. Possible values: `0`, `1`. (default: `0`)
+* `PARTS_COUNT` - Start parts count for endpoint, should be valid JSON dictionary(`String:Int`). Possible values: `'{"events":10}'`. (default: `'{}'`)
+   *Note: as described in LogsAPI documentation - for files more than 5GB server should return HTTP status `400` immediately, 
+   but by some reason it starts to return data and reset connection in the middle. In such case loader should start with manually selected parts count.*
 
 #### Scheduling configuration
 * `UPDATE_LIMIT` - Count of days for the first events fetch. (default: `30`)
