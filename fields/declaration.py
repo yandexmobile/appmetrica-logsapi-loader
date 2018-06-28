@@ -94,7 +94,7 @@ _installation_fields = _core_click_fields + _located_device_fields + _app_fields
 _installation_keys = _click_keys + [
     "match_type",
 ]
-_installations_source = Source("installations", "installations_all", "install_date", "install_ipv6",
+_installations_source = Source("installations", "installations_all", "install_date", "appmetrica_device_id",
                                _installation_keys, False, _installation_fields)
 
 
