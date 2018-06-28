@@ -87,6 +87,7 @@ _core_installation_fields = [
     optional("install_ipv6", db_string("InstallIPV6")),
 ]
 _installation_fields = _core_click_fields + _located_device_fields + _app_fields + _core_installation_fields + [
+    required("appmetrica_device_id", db_string("DeviceID")),
     required("install_date", db_date("InstallDate"), timestamp_to_date("install_timestamp")),
     optional("install_receive_timestamp", db_uint64("ReceiveTimestamp")),
     optional("is_reinstallation", db_bool("IsReinstallation"), str_to_bool('is_reinstallation'), False),
