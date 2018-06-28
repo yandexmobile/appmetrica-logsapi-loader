@@ -79,11 +79,16 @@ class Loader(object):
              parts_count: int = 1) \
             -> Generator[DataFrame, None, None]:
         part_number = 0
+        prev_part_number = -1
         first_request = True
         progress = None
         while part_number < parts_count:
             try:
-                force_recreate = not self._allow_cached
+                starting_part = prev_part_number != part_number
+                prev_part_number = part_number
+                if starting_part:
+                    first_request = True
+                force_recreate = not self._allow_cached and (starting_part and first_request)
                 r = self.client.logs_api_export(app_id=app_id, table=table,
                                                 fields=fields,
                                                 date_since=date_since,
