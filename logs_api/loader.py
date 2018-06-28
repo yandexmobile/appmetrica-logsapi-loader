@@ -83,7 +83,7 @@ class Loader(object):
         progress = None
         while part_number < parts_count:
             try:
-                force_recreate = not self._allow_cached and first_request
+                force_recreate = not self._allow_cached
                 r = self.client.logs_api_export(app_id=app_id, table=table,
                                                 fields=fields,
                                                 date_since=date_since,
