@@ -80,7 +80,8 @@ class Updater(object):
                     db_controller: DbController,
                     processing_definition: ProcessingDefinition,
                     loading_definition: LoadingDefinition):
-        db_controller.recreate_table(table_suffix)
+        temp_table_controller = db_controller.create_temp_table_controller()
+        temp_table_controller.recreate_table(table_suffix)
 
         df_it = self._load(app_id, loading_definition, since, until,
                            LogsApiClient.DATE_DIMENSION_CREATE, parts_count)
@@ -88,7 +89,9 @@ class Updater(object):
             logger.debug("Start processing data chunk")
             upload_df = self._process_data(app_id, df,
                                            processing_definition)
-            db_controller.insert_data(upload_df, table_suffix)
+            temp_table_controller.insert_data(upload_df, table_suffix)
+
+        db_controller.replace_with(table_suffix, temp_table_controller)
 
     def update(self, app_id: str, date: Optional[datetime.date],
                table_suffix: str, db_controller: DbController,

@@ -39,8 +39,8 @@ class LoadingDefinition(object):
 
 
 class DbTableDefinition(object):
-    def __init__(self, source: Source):
-        self.table_name = source.db_name
+    def __init__(self, source: Source, name=None):
+        self.table_name = source.db_name if name is None else name
         self.primary_keys = []
         self.column_types = dict()
         self.field_types = dict()

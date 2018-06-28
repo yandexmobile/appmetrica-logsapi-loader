@@ -52,6 +52,10 @@ class Database(object):
         pass
 
     @abstractmethod
+    def rename_table(self, from_table_name: str, to_table_name: str):
+        pass
+
+    @abstractmethod
     def create_merge_table(self, table_name: str,
                            fields: List[Tuple[str, str]],
                            merge_re: str):

@@ -114,6 +114,14 @@ class ClickhouseDatabase(Database):
         )
         self._query_clickhouse(q)
 
+    def rename_table(self, from_table_name: str, to_table_name: str):
+        q = '''
+            RENAME TABLE {db}.{from_table} TO {db}.{to_table}
+        '''.format(db=self.db_name,
+                   from_table=from_table_name,
+                   to_table=to_table_name)
+        self._query_clickhouse(q)
+
     def create_merge_table(self, table_name: str,
                            fields: List[Tuple[str, str]],
                            merge_re: str):
