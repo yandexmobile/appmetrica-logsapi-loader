@@ -31,7 +31,7 @@ PARTS_COUNT = json.loads(environ.get('PARTS_COUNT', '{}'))  # empty == 1
 
 UPDATE_LIMIT = timedelta(days=int(environ.get('UPDATE_LIMIT', '30')))
 FRESH_LIMIT = timedelta(days=int(environ.get('FRESH_LIMIT', '7')))
-UPDATE_INTERVAL = timedelta(hours=int(environ.get('UPDATE_INTERVAL', '12')))
+UPDATE_INTERVAL_MINUTES = timedelta(minutes=int(environ.get('UPDATE_INTERVAL_MINUTES', '4')))
 REQUEST_CHUNK_ROWS = int(environ.get('REQUEST_CHUNK_ROWS', '25000'))
 
 STATE_FILE_PATH = environ.get('STATE_FILE_PATH', DEFAULT_STATE_FILE_PATH)
