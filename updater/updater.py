@@ -92,6 +92,7 @@ class Updater(object):
             temp_table_controller.insert_data(upload_df, table_suffix)
 
         db_controller.replace_with(table_suffix, temp_table_controller)
+        db_controller.delete_sub_parts(table_suffix)
 
     def update(self, app_id: str, date: Optional[datetime.date],
                table_suffix: str, db_controller: DbController,

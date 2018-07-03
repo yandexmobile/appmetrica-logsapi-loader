@@ -37,7 +37,7 @@ class DbController(object):
     ARCHIVE_SUFFIX = 'old'
     ALL_SUFFIX = 'all'
     LATEST_SUFFIX = 'latest'
-    TEMP_PREFIX = 'temp'
+    TEMP_PREFIX = 'z_temp'
 
     def __init__(self, db: Database, definition: DbTableDefinition):
         self._db = db
@@ -65,7 +65,6 @@ class DbController(object):
     @property
     def definition(self):
         return self._definition
-
 
     def _prepare_db(self):
         if not self._db.database_exists():
@@ -132,6 +131,13 @@ class DbController(object):
         table_name = self.table_name(table_suffix)
         self._db.drop_table(table_name)
         self._create_table(table_name)
+
+    def delete_sub_parts(self, table_suffix: str):
+        table_name = self.table_name(table_suffix)
+        tables = self._db.list_tables()
+        sub_parts = [x for x in tables if (x.startswith(table_name) and x != table_name)]
+        for part in sub_parts:
+            self._db.drop_table(part)
 
     def create_temp_table_controller(self):
         temp_name = "{}__{}".format(self.TEMP_PREFIX, self._definition.table_name)

@@ -72,6 +72,10 @@ class Database(object):
         pass
 
     @abstractmethod
+    def list_tables(self):
+        pass
+
+    @abstractmethod
     def insert(self, table_name: str, tsv_content: str):
         pass
 

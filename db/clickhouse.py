@@ -157,6 +157,12 @@ class ClickhouseDatabase(Database):
     def query(self, query_text: str):
         self._query_clickhouse(query_text)
 
+    def list_tables(self):
+        result = self._query_clickhouse("SHOW TABLES FROM {db}".format(
+            db=self.db_name)
+        )
+        return result.splitlines()
+
     def _create_table_like(self, source_table: str, new_table: str):
         query = self._query_clickhouse('SHOW CREATE TABLE {db}.{table}'.format(
             db=self.db_name,

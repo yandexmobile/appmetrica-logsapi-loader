@@ -148,6 +148,10 @@ class Scheduler(object):
             yield UpdateRequest(source, app_id, None,
                                 UpdateRequest.LOAD_DATE_IGNORED)
 
+    @staticmethod
+    def _filter_without_state(dates, state: AppIdState):
+        return [d for d in dates if d.date() not in state.date_updates]
+
     def update_requests(self) \
             -> Generator[UpdateRequest, None, None]:
         self._load_state()
@@ -162,7 +166,16 @@ class Scheduler(object):
             for update_request in updates:
                 yield update_request
 
-            for pd_date in pd.date_range(date_from, date_to):
+            date_range = pd.date_range(date_from, date_to).tolist()
+
+            new = self._filter_without_state(date_range, app_id_state)
+            result_set = set(new)
+            if len(date_range) > 2:
+                result_set.add(date_range[0])  # oldest date(may be archived
+                result_set.add(date_range[-2])  # yesterday
+
+            logger.debug("dates to update {}".format(result_set))
+            for pd_date in result_set:
                 p_date = pd_date.to_pydatetime().date()  # type: date
                 updates = self._update_date(app_id_state, p_date, started_at)
                 for update_request in updates:
