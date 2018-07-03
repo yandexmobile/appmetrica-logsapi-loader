@@ -27,13 +27,16 @@ class UpdateRequest(object):
     ARCHIVE = 'archive'
     LOAD_ONE_DATE = 'load_one_date'
     LOAD_DATE_IGNORED = 'load_date_ignored'
+    LOAD_INTERVAL = 'load_interval'
 
     def __init__(self, source: str, app_id: str, p_date: Optional[date],
-                 update_type: str):
+                 update_type: str, interval_from: Optional[datetime] = None, interval_to: Optional[datetime] = None):
         self.source = source
         self.app_id = app_id
         self.date = p_date
         self.update_type = update_type
+        self.interval_from = interval_from
+        self.interval_to = interval_to
 
 
 class Scheduler(object):
@@ -42,12 +45,13 @@ class Scheduler(object):
     def __init__(self, state_storage: StateStorage,
                  scheduling_definition: SchedulingDefinition,
                  app_ids: List[str], update_limit: timedelta,
-                 update_interval: timedelta, fresh_limit: timedelta):
+                 update_interval: timedelta, load_interval: timedelta, fresh_limit: timedelta):
         self._state_storage = state_storage
         self._definition = scheduling_definition
         self._app_ids = app_ids
         self._update_limit = update_limit
         self._update_interval = update_interval
+        self._load_interval = load_interval
         self._fresh_limit = fresh_limit
         self._state = None
 
@@ -102,6 +106,10 @@ class Scheduler(object):
             return None
         return delta
 
+    @staticmethod
+    def round_based(x, base=5):
+        return int(base * round(float(x) / base))
+
     def _wait_if_needed(self):
         wait_time = self._wait_time(self._update_interval)
         if wait_time:
@@ -154,6 +162,13 @@ class Scheduler(object):
 
     def update_requests(self) \
             -> Generator[UpdateRequest, None, None]:
+        if self._load_interval.total_seconds() > 0:
+            return self.mainstream_update()
+        else:
+            return self.date_update_requests()
+
+    def date_update_requests(self) \
+            -> Generator[UpdateRequest, None, None]:
         self._load_state()
         self._wait_if_needed()
         started_at = datetime.now()
@@ -184,4 +199,29 @@ class Scheduler(object):
             updates = self._update_date_ignored_fields(app_id_state.app_id)
             for update_request in updates:
                 yield update_request
+        self._finish_updates()
+
+    def _update_between(self, app_id_state: AppIdState, dt_from: datetime, dt_to: datetime) \
+            -> Generator[UpdateRequest, None, None]:
+        sources = self._definition.date_required_sources
+        for source in sources:
+            yield UpdateRequest(source, app_id_state.app_id, None,
+                                UpdateRequest.LOAD_INTERVAL, dt_from, dt_to)
+
+    def mainstream_update(self) \
+            -> Generator[UpdateRequest, None, None]:
+        self._load_state()
+        self._wait_if_needed()
+        started_at = datetime.utcnow()
+        datetime_to = started_at - timedelta(minutes=started_at.minute % (self._load_interval.seconds // 60),
+                                             seconds=started_at.second,
+                                             microseconds=started_at.microsecond)
+        datetime_from = datetime_to - self._load_interval
+        datetime_to = datetime_to - timedelta(seconds=1)
+        for app_id in self._app_ids:
+            app_id_state = self._get_or_create_app_id_state(app_id)
+            updates = self._update_between(app_id_state, datetime_from, datetime_to)
+            for update_request in updates:
+                yield update_request
+
         self._finish_updates()

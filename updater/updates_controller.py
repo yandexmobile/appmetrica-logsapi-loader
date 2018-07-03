@@ -48,6 +48,23 @@ class UpdatesController(object):
         self._updater.update(app_id, date, table_suffix, db_controller,
                              processing_definition, loading_definition)
 
+    def _load_interval(self, app_id: str, datetime_from: datetime, datetime_to: datetime,
+                       table_suffix: str,
+                       processing_definition: ProcessingDefinition,
+                       loading_definition: LoadingDefinition,
+                       db_controller: DbController):
+        logger.info('Loading interval from "{datetime_from}" to "{datetime_to}" into "{suffix}" of "{source}" '
+                    'for "{app_id}"'.format(
+            datetime_from=datetime_from,
+            datetime_to=datetime_to,
+            source=loading_definition.source_name,
+            app_id=app_id,
+            suffix=table_suffix
+        ))
+        self._updater.update_interval(app_id, db_controller,
+                                      loading_definition, processing_definition, datetime_from, table_suffix,
+                                      datetime_to)
+
     def _archive(self, source: str, app_id: str, date: datetime.date,
                  table_suffix: str, db_controller: DbController):
         logger.info('Archiving "{date}" of "{source}" for "{app_id}"'.format(
@@ -84,6 +101,16 @@ class UpdatesController(object):
             self._load_into_table(app_id, None, table_suffix,
                                   processing_definition, loading_definition,
                                   db_controller)
+        elif update_type == UpdateRequest.LOAD_INTERVAL:
+            table_suffix = '{}_{}'.format(app_id, update_request.interval_from.date().strftime('%Y%m%d'))
+            if update_request.interval_to.minute - update_request.interval_from.minute == 59:
+                table_suffix = '{}_{}'.format(table_suffix, update_request.interval_from.hour)
+            else:
+                table_suffix = '{}_{}_{}_{}'.format(table_suffix, update_request.interval_from.hour,
+                                                    update_request.interval_from.minute,
+                                                    (update_request.interval_to + datetime.timedelta(seconds=1)).minute)
+            self._load_interval(app_id, update_request.interval_from, update_request.interval_to, table_suffix,
+                                processing_definition, loading_definition, db_controller)
 
     def _step(self):
         update_requests = self._scheduler.update_requests()
@@ -96,5 +123,6 @@ class UpdatesController(object):
             try:
                 self._step()
             except Exception as e:
-                logger.warning(e)
+                logger.warning(e, exc_info=True)
                 time.sleep(10)
+

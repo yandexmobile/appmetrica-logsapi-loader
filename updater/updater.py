@@ -103,6 +103,13 @@ class Updater(object):
             since = datetime.datetime.combine(date, datetime.time.min)
             until = datetime.datetime.combine(date, datetime.time.max)
 
+        self._update(app_id, db_controller, loading_definition, processing_definition, since, table_suffix, until)
+
+    def update_interval(self, app_id, db_controller, loading_definition, processing_definition, since, table_suffix,
+                        until):
+        self._update(app_id, db_controller, loading_definition, processing_definition, since, table_suffix, until)
+
+    def _update(self, app_id, db_controller, loading_definition, processing_definition, since, table_suffix, until):
         parts_count = self._min_parts_count.get(db_controller.definition.table_name, 1)
         is_loading_completed = False
         while not is_loading_completed:
