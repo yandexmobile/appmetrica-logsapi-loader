@@ -13,7 +13,7 @@
 from datetime import datetime, date, time, timedelta
 import logging
 from time import sleep
-from typing import List, Optional, Generator
+from typing import List, Optional, Generator, Dict
 
 import pandas as pd
 
@@ -41,19 +41,27 @@ class UpdateRequest(object):
 
 class Scheduler(object):
     ARCHIVED_DATE = datetime(3000, 1, 1)
+    _SCHEDULE_INTERVAL_MINUTES = 'interval_minutes'
+    _SCHEDULE_HOURLY_AT = 'hourly_at'
+    _SCHEDULE_EVERY_10TH = 'every_10th'
 
     def __init__(self, state_storage: StateStorage,
                  scheduling_definition: SchedulingDefinition,
                  app_ids: List[str], update_limit: timedelta,
-                 update_interval: timedelta, load_interval: timedelta, fresh_limit: timedelta):
+                 update_schedule: Dict[str, int], load_interval: timedelta,
+                 fresh_limit: timedelta):
         self._state_storage = state_storage
         self._definition = scheduling_definition
         self._app_ids = app_ids
         self._update_limit = update_limit
-        self._update_interval = update_interval
+        self._update_schedule = update_schedule
+        # self._update_interval = update_interval
         self._load_interval = load_interval
         self._fresh_limit = fresh_limit
         self._state = None
+
+    def _update_interval(self) -> int:
+        return self._update_schedule.get(self._SCHEDULE_INTERVAL_MINUTES, 0)
 
     def _load_state(self):
         self._state = self._state_storage.load()
@@ -95,13 +103,30 @@ class Scheduler(object):
         self._state.last_update_time = now or datetime.now()
         self._save_state()
 
-    def _wait_time(self, update_interval: timedelta,
+    def _wait_time(self,
+                   schedule: Dict[str, int],
                    now: datetime = None) \
             -> Optional[timedelta]:
         if not self._state.last_update_time:
             return None
+
         now = now or datetime.now()
-        delta = self._state.last_update_time - now + update_interval
+        delta = timedelta(seconds=0)
+        if schedule.get(self._SCHEDULE_INTERVAL_MINUTES):
+            delta = self._state.last_update_time - now + timedelta(minutes=schedule[self._SCHEDULE_INTERVAL_MINUTES])
+        elif schedule.get(self._SCHEDULE_HOURLY_AT):
+            next_update = self._state.last_update_time.replace(minute=0, second=0, microsecond=0) \
+                          + timedelta(hours=1, minutes=schedule[self._SCHEDULE_HOURLY_AT])
+            delta = next_update - now
+        elif schedule.get(self._SCHEDULE_EVERY_10TH):
+            hour = self._state.last_update_time.replace(minute=0, second=0, microsecond=0)
+            tens_since_hour = (self._state.last_update_time.minute // 10) * 10
+            next_update = hour + timedelta(minutes=tens_since_hour) + timedelta(
+                minutes=schedule[self._SCHEDULE_EVERY_10TH])
+            if self._state.last_update_time > next_update:
+                next_update = next_update + timedelta(minutes=10)
+            delta = next_update - now
+
         if delta.total_seconds() < 0:
             return None
         return delta
@@ -111,7 +136,7 @@ class Scheduler(object):
         return int(base * round(float(x) / base))
 
     def _wait_if_needed(self):
-        wait_time = self._wait_time(self._update_interval)
+        wait_time = self._wait_time(self._update_schedule)
         if wait_time:
             logger.info('Sleep for {}'.format(wait_time))
             sleep(wait_time.total_seconds())
@@ -135,7 +160,7 @@ class Scheduler(object):
         updated_at = app_id_state.date_updates.get(p_date)
         last_event_date = datetime.combine(p_date, time.max)
         if updated_at:
-            updated = started_at - updated_at < self._update_interval
+            updated = started_at - updated_at < self._update_interval()
             if updated:
                 return
         last_event_delta = (updated_at or started_at) - last_event_date
@@ -190,7 +215,7 @@ class Scheduler(object):
                 result_set.add(date_range[-2])  # yesterday
 
             logger.debug("dates to update {}".format(result_set))
-            for pd_date in result_set:
+            for pd_date in sorted(result_set):
                 p_date = pd_date.to_pydatetime().date()  # type: date
                 updates = self._update_date(app_id_state, p_date, started_at)
                 for update_request in updates:

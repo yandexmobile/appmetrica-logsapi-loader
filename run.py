@@ -66,7 +66,8 @@ def main():
     scheduler = Scheduler(
         state_storage=state_storage,
         app_ids=settings.APP_IDS,
-        update_interval=settings.UPDATE_INTERVAL_MINUTES,
+        # update_interval=settings.UPDATE_INTERVAL_MINUTES,
+        update_schedule=settings.UPDATE_SCHEDULE,
         load_interval=settings.LOAD_INTERVAL_MINUTES,
         update_limit=settings.UPDATE_LIMIT,
         fresh_limit=settings.FRESH_LIMIT,
