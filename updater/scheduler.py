@@ -160,7 +160,8 @@ class Scheduler(object):
         updated_at = app_id_state.date_updates.get(p_date)
         last_event_date = datetime.combine(p_date, time.max)
         if updated_at:
-            updated = started_at - updated_at < self._update_interval()
+            minutes = (started_at - updated_at).total_seconds() // 60
+            updated = minutes < self._update_interval()
             if updated:
                 return
         last_event_delta = (updated_at or started_at) - last_event_date
