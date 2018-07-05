@@ -62,11 +62,14 @@ class DbTableDefinition(object):
 class ProcessingDefinition(object):
     def __init__(self, source: Source):
         self.field_converters = dict()
+        self.field_extractors = dict()
         self.field_types = dict()
         for field in source.fields:
             field_name = field.load_name
             if field.converter:
                 self.field_converters[field_name] = field.converter
+            if field.extractor:
+                self.field_extractors[field_name] = field.extractor
             self.field_types[field_name] = field.db_type
 
 

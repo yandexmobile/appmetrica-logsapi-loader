@@ -12,11 +12,12 @@
 """
 from typing import List
 
+from settings import EVENTS_JSON_MAPPING
 from .helpers import *
 from .db_types import *
 from .converters import *
 from .source import Source
-
+import json
 
 _system_defined_fields = [
     system_defined("app_id", db_uint64("AppID")),
@@ -55,7 +56,6 @@ _app_fields = [
     optional("app_package_name", db_string("AppPackageName")),
 ]  # type: List[Field]
 
-
 _core_click_fields = [
     optional("publisher_id", db_string("PublisherID")),
     optional("tracking_id", db_string("TrackingID")),
@@ -79,7 +79,6 @@ _click_keys = [
 _clicks_source = Source("clicks", "clicks", "click_date", "click_ipv6",
                         _click_keys, False, _click_fields)
 
-
 _core_installation_fields = [
     optional("match_type", db_string("MatchType")),
     required("install_timestamp", db_uint64("InstallTimestamp")),
@@ -97,7 +96,6 @@ _installation_keys = _click_keys + [
 ]
 _installations_source = Source("installations", "installations_all", "install_date", "appmetrica_device_id",
                                _installation_keys, False, _installation_fields)
-
 
 _postback_fields = _core_click_fields + _core_installation_fields + _device_fields + _app_fields + [
     optional("event_name", db_string("EventName")),
@@ -122,17 +120,79 @@ _postbacks_source = Source("postbacks", "postbacks", "attempt_date", None,
                            _postback_key, False, _postback_fields)
 
 
-_event_fields = _system_defined_fields + _sdk_device_fields + _app_fields + [
+def json_unescaper(df: DataFrame) -> Series:
+    result = list()
+    for f in df['event_json']:
+        unquoted = f.replace('"{', '{').replace('}"', '}').replace('"', "'")
+        result.append(unquoted)
+    return Series(result)
+
+
+_STRING = 'String'
+_INT16 = 'Int16'
+_UINT64 = 'UInt64'
+_DATE = 'Date'
+_DATETIME = 'DateTime'
+_BOOL = 'UInt8'
+
+_event_json_mapping = EVENTS_JSON_MAPPING
+# _event_json_mapping = {
+#     'gadget_slot': _STRING,
+#     'level': _INT16,
+# }
+
+_event_json_names = _event_json_mapping.keys()
+
+
+def _db_field_name(name: str) -> str:
+    return f"_{name}"
+
+
+def _mapping_to_db_field(name, type) -> Field:
+    db_name = _db_field_name(name)
+    if type == _STRING:
+        return optional(db_name, db_string(db_name), generated=True)
+    elif type == _INT16:
+        return optional(db_name, db_int16(db_name), generated=True)
+    elif type == _UINT64:
+        return optional(db_name, db_uint64(db_name), generated=True)
+    elif type == _DATE:
+        return optional(db_name, db_date(db_name), generated=True)
+    elif type == _DATETIME:
+        return optional(db_name, db_datetime(db_name), generated=True)
+    elif type == _BOOL:
+        return optional(db_name, db_bool(db_name), generated=True)
+
+
+def _json_extractor(df: DataFrame) -> DataFrame:
+    result = dict()
+    for name in _event_json_names:
+        result[_db_field_name(name)] = list()
+    for f in df['event_json']:
+        parsed = json.loads(f)
+        for name in _event_json_names:
+            result[_db_field_name(name)].append(parsed.get(name))
+    return DataFrame.from_dict(result)
+
+
+_event_json_fields = [
+                         optional("event_json", db_string("EventParameters"), extractor=_json_extractor,
+                                  generated=False),
+                         # optional("_gadget_slot", db_string("_gadget_slot"), generated=True),
+                         # optional("_level", db_int16("_level"), generated=True)
+                     ] + [_mapping_to_db_field(k, _event_json_mapping[k]) for k in _event_json_mapping.keys()]
+
+_event_fields = _system_defined_fields + _sdk_device_fields + _app_fields + _event_json_fields + [
     required("event_timestamp", db_uint64("EventTimestamp")),
 
     optional("event_name", db_string("EventName")),
-    optional("event_json", db_string("EventParameters")),
     optional("event_receive_timestamp", db_uint64("ReceiveTimestamp")),
 
     required("event_date", db_date("EventDate"), timestamp_to_date("event_timestamp")),
     optional("event_datetime", db_datetime("EventDateTime"), timestamp_to_datetime("event_timestamp")),
     optional("event_receive_date", db_date("ReceiveDate"), timestamp_to_date("event_receive_timestamp")),
-    optional("event_receive_datetime", db_datetime("ReceiveDateTime"), timestamp_to_datetime("event_receive_timestamp")),
+    optional("event_receive_datetime", db_datetime("ReceiveDateTime"),
+             timestamp_to_datetime("event_receive_timestamp")),
 ]  # type: List[Field]
 _event_key = [
     "event_name",
@@ -141,7 +201,6 @@ _event_key = [
 _events_source = Source("events", "events", "event_date", "appmetrica_device_id",
                         _event_key, False, _event_fields)
 
-
 _push_token_fields = _sdk_device_fields + _app_fields + [
     optional("token", db_string("Token")),
     required("token_timestamp", db_uint64("TokenTimestamp")),
@@ -149,14 +208,14 @@ _push_token_fields = _sdk_device_fields + _app_fields + [
     optional("token_datetime", db_datetime("TokenDateTime"), timestamp_to_datetime("token_timestamp")),
     optional("token_receive_timestamp", db_uint64("ReceiveTimestamp")),
     optional("token_receive_date", db_date("ReceiveDate"), timestamp_to_date("token_receive_timestamp")),
-    optional("token_receive_datetime", db_datetime("ReceiveDateTime"), timestamp_to_datetime("token_receive_timestamp")),
+    optional("token_receive_datetime", db_datetime("ReceiveDateTime"),
+             timestamp_to_datetime("token_receive_timestamp")),
 ]  # type: List[Field]
 _push_token_key = [
     "device_id_hash",
 ]
 _push_tokens_source = Source("push_tokens", "push_tokens", "token_date", "appmetrica_device_id",
                              _push_token_key, True, _push_token_fields)
-
 
 _crash_fields = _system_defined_fields + _sdk_device_fields + _app_fields + [
     required("crash_timestamp", db_uint64("CrashTimestamp")),
@@ -169,7 +228,8 @@ _crash_fields = _system_defined_fields + _sdk_device_fields + _app_fields + [
     required("crash_date", db_date("CrashDate"), timestamp_to_date("crash_timestamp")),
     optional("crash_datetime", db_datetime("CrashDateTime"), timestamp_to_datetime("crash_timestamp")),
     optional("crash_receive_date", db_date("ReceiveDate"), timestamp_to_date("crash_receive_timestamp")),
-    optional("crash_receive_datetime", db_datetime("ReceiveDateTime"), timestamp_to_datetime("crash_receive_timestamp")),
+    optional("crash_receive_datetime", db_datetime("ReceiveDateTime"),
+             timestamp_to_datetime("crash_receive_timestamp")),
 ]  # type: List[Field]
 _crash_key = [
     "crash_id",
@@ -178,7 +238,6 @@ _crash_key = [
 ]
 _crashes_source = Source("crashes", "crashes", "crash_date", "appmetrica_device_id",
                          _crash_key, False, _crash_fields)
-
 
 _error_fields = _system_defined_fields + _sdk_device_fields + _app_fields + [
     required("error_timestamp", db_uint64("ErrorTimestamp")),
@@ -190,7 +249,8 @@ _error_fields = _system_defined_fields + _sdk_device_fields + _app_fields + [
     required("error_date", db_date("ErrorDate"), timestamp_to_date("error_timestamp")),
     optional("error_datetime", db_datetime("ErrorDateTime"), timestamp_to_datetime("error_timestamp")),
     optional("error_receive_date", db_date("ReceiveDate"), timestamp_to_date("error_receive_timestamp")),
-    optional("error_receive_datetime", db_datetime("ReceiveDateTime"), timestamp_to_datetime("error_receive_timestamp")),
+    optional("error_receive_datetime", db_datetime("ReceiveDateTime"),
+             timestamp_to_datetime("error_receive_timestamp")),
 ]  # type: List[Field]
 _error_key = [
     "event_name",
@@ -199,22 +259,23 @@ _error_key = [
 _errors_source = Source("errors", "errors", "error_date", "appmetrica_device_id",
                         _error_key, False, _error_fields)
 
-
 _sessions_start_fields = _system_defined_fields + _sdk_device_fields + _app_fields + [
     required("session_start_timestamp", db_uint64("SessionStartTimestamp")),
     optional("session_start_receive_timestamp", db_uint64("ReceiveTimestamp")),
 
     required("session_start_date", db_date("SessionStartDate"), timestamp_to_date("session_start_timestamp")),
-    optional("session_start_datetime", db_datetime("SessionStartDateTime"), timestamp_to_datetime("session_start_timestamp")),
-    optional("session_start_receive_date", db_date("ReceiveDate"), timestamp_to_date("session_start_receive_timestamp")),
-    optional("session_start_receive_datetime", db_datetime("ReceiveDateTime"), timestamp_to_datetime("session_start_receive_timestamp")),
+    optional("session_start_datetime", db_datetime("SessionStartDateTime"),
+             timestamp_to_datetime("session_start_timestamp")),
+    optional("session_start_receive_date", db_date("ReceiveDate"),
+             timestamp_to_date("session_start_receive_timestamp")),
+    optional("session_start_receive_datetime", db_datetime("ReceiveDateTime"),
+             timestamp_to_datetime("session_start_receive_timestamp")),
 ]  # type: List[Field]
 _sessions_start_key = [
     "device_id_hash",
 ]
 _sessions_starts_source = Source("sessions_starts", "sessions_starts", "session_start_date", "appmetrica_device_id",
                                  _sessions_start_key, False, _sessions_start_fields)
-
 
 sources = [
     _clicks_source,

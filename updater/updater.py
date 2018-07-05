@@ -56,12 +56,24 @@ class Updater(object):
             df[name] = converter(df)
         return df
 
+    @staticmethod
+    def _apply_extractors(df: DataFrame,
+                          extractors: Dict[str, Converter]) \
+            -> DataFrame:
+        logger.debug('Applying extractors')
+        for _, extractor in extractors.items():
+            new = extractor(df)
+            for name, series in new.iteritems():
+                df[name] = series
+        return df
+
     def _process_data(self, app_id: str, df: DataFrame,
                       processing_definition: ProcessingDefinition):
         df = df.copy()  # type: DataFrame
         df = self._ensure_types(df, processing_definition.field_types)
         df = self._append_system_fields(df, app_id)
         df = self._apply_converters(df, processing_definition.field_converters)
+        df = self._apply_extractors(df, processing_definition.field_extractors)
         return df
 
     def _load(self, app_id: str, loading_definition: LoadingDefinition,
