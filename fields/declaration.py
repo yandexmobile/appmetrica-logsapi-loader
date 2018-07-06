@@ -175,6 +175,8 @@ def _mapping_to_db_field(name, type) -> Field:
         return optional(db_name, db_datetime(db_name), generated=True)
     elif type_lower == _BOOL.lower():
         return optional(db_name, db_bool(db_name), generated=True)
+    else:
+        raise Exception(f"Unknown type {type}")
 
 
 def _json_extractor(df: DataFrame) -> DataFrame:

@@ -137,6 +137,8 @@ class Scheduler(object):
                 next_update = next_update + timedelta(days=1)
 
             delta = next_update - now
+        else:
+            raise Exception("No schedule")
 
         if delta.total_seconds() < 0:
             return None
