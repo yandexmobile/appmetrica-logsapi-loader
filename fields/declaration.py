@@ -131,6 +131,7 @@ def json_unescaper(df: DataFrame) -> Series:
 _STRING = 'String'
 _INT16 = 'Int16'
 _UINT64 = 'UInt64'
+_INT64 = 'Int64'
 _DATE = 'Date'
 _DATETIME = 'DateTime'
 _BOOL = 'UInt8'
@@ -150,17 +151,20 @@ def _db_field_name(name: str) -> str:
 
 def _mapping_to_db_field(name, type) -> Field:
     db_name = _db_field_name(name)
-    if type == _STRING:
+    type_lower = type.lower()
+    if type_lower == _STRING.lower():
         return optional(db_name, db_string(db_name), generated=True)
-    elif type == _INT16:
+    elif type_lower == _INT16.lower():
         return optional(db_name, db_int16(db_name), generated=True)
-    elif type == _UINT64:
+    elif type_lower == _UINT64.lower():
         return optional(db_name, db_uint64(db_name), generated=True)
-    elif type == _DATE:
+    elif type_lower == _INT64.lower():
+        return optional(db_name, db_int64(db_name), generated=True)
+    elif type_lower == _DATE.lower():
         return optional(db_name, db_date(db_name), generated=True)
-    elif type == _DATETIME:
+    elif type_lower == _DATETIME.lower():
         return optional(db_name, db_datetime(db_name), generated=True)
-    elif type == _BOOL:
+    elif type_lower == _BOOL.lower():
         return optional(db_name, db_bool(db_name), generated=True)
 
 
@@ -170,8 +174,9 @@ def _json_extractor(df: DataFrame) -> DataFrame:
         result[_db_field_name(name)] = list()
     for f in df['event_json']:
         parsed = json.loads(f)
+        parsed = {k.lower(): v for k, v in parsed.items()}
         for name in _event_json_names:
-            result[_db_field_name(name)].append(parsed.get(name))
+            result[_db_field_name(name)].append(parsed.get(name.lower()))
     return DataFrame.from_dict(result)
 
 

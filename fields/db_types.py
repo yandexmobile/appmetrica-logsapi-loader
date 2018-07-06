@@ -21,6 +21,10 @@ def db_int16(db_name: str) -> Tuple[str, str]:
     return db_name, 'Int16'
 
 
+def db_int64(db_name: str) -> Tuple[str, str]:
+    return db_name, 'Int64'
+
+
 def db_uint64(db_name: str) -> Tuple[str, str]:
     return db_name, 'UInt64'
 
