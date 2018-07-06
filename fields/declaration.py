@@ -128,16 +128,16 @@ def json_unescaper(df: DataFrame) -> Series:
     return Series(result)
 
 
-_STRING = 'String'
-_INT16 = 'Int16'
-_UINT16 = 'UInt16'
-_UINT64 = 'UInt64'
-_INT64 = 'Int64'
-_INT32 = 'Int32'
-_UINT32 = 'UInt32'
-_DATE = 'Date'
-_DATETIME = 'DateTime'
-_BOOL = 'UInt8'
+_STRING = 'string'
+_INT16 = 'int16'
+_UINT16 = 'uint16'
+_UINT64 = 'uint64'
+_INT64 = 'int64'
+_INT32 = 'int32'
+_UINT32 = 'uint32'
+_DATE = 'date'
+_DATETIME = 'datetime'
+_BOOL = 'uint8'
 
 _event_json_mapping = EVENTS_JSON_MAPPING
 # _event_json_mapping = {
@@ -155,25 +155,25 @@ def _db_field_name(name: str) -> str:
 def _mapping_to_db_field(name, type) -> Field:
     db_name = _db_field_name(name)
     type_lower = type.lower()
-    if type_lower == _STRING.lower():
+    if type_lower == _STRING:
         return optional(db_name, db_string(db_name), generated=True)
-    elif type_lower == _INT16.lower():
+    elif type_lower == _INT16:
         return optional(db_name, db_int16(db_name), generated=True)
-    elif type_lower == _UINT64.lower():
+    elif type_lower == _UINT64:
         return optional(db_name, db_uint64(db_name), generated=True)
-    elif type_lower == _UINT16.lower():
+    elif type_lower == _UINT16:
         return optional(db_name, db_uint16(db_name), generated=True)
-    elif type_lower == _INT64.lower():
+    elif type_lower == _INT64:
         return optional(db_name, db_int64(db_name), generated=True)
-    elif type_lower == _INT32.lower():
+    elif type_lower == _INT32:
         return optional(db_name, db_int32(db_name), generated=True)
-    elif type_lower == _UINT32.lower():
+    elif type_lower == _UINT32:
         return optional(db_name, db_uint32(db_name), generated=True)
-    elif type_lower == _DATE.lower():
+    elif type_lower == _DATE:
         return optional(db_name, db_date(db_name), generated=True)
-    elif type_lower == _DATETIME.lower():
+    elif type_lower == _DATETIME:
         return optional(db_name, db_datetime(db_name), generated=True)
-    elif type_lower == _BOOL.lower():
+    elif type_lower == _BOOL:
         return optional(db_name, db_bool(db_name), generated=True)
     else:
         raise Exception(f"Unknown type {type}")
@@ -182,13 +182,50 @@ def _mapping_to_db_field(name, type) -> Field:
 def _json_extractor(df: DataFrame) -> DataFrame:
     result = dict()
     for name in _event_json_names:
-        result[_db_field_name(name)] = list()
+        result[name] = list()
     for f in df['event_json']:
-        parsed = json.loads(f)
-        parsed = {k.lower(): v for k, v in parsed.items()}
+        parsed_json = json.loads(f)
+
+        parsed_json = {k.lower(): v for k, v in parsed_json.items()}
         for name in _event_json_names:
-            result[_db_field_name(name)].append(parsed.get(name.lower()))
-    return DataFrame.from_dict(result)
+            value = parsed_json.get(name.lower())
+            if type(value) is bool:
+                result[name].append(1 if value else 0)
+            else:
+                result[name].append(value)
+    out_frame = DataFrame()
+    for k, v in _event_json_mapping.items():
+        v_lower = v.lower()
+        if v_lower == _BOOL:
+            line = [0 if x is None else x for x in result[k]]
+            s = Series(data=line, dtype='int8')
+        elif v_lower == _INT16:
+            line = [0 if x is None else x for x in result[k]]
+            s = Series(data=line, dtype='int16')
+        elif v_lower == _UINT16:
+            line = [0 if x is None else x for x in result[k]]
+            s = Series(data=line, dtype='uint16')
+        elif v_lower == _STRING:
+            line = [0 if x is None else x for x in result[k]]
+            s = Series(data=line, dtype='str')
+        elif v_lower == _INT64:
+            line = [0 if x is None else x for x in result[k]]
+            s = Series(data=line, dtype='int64')
+        elif v_lower == _UINT64:
+            line = [0 if x is None else x for x in result[k]]
+            s = Series(data=line, dtype='uint64')
+        elif v_lower == _INT32:
+            line = [0 if x is None else x for x in result[k]]
+            s = Series(data=line, dtype='int32')
+        elif v_lower == _UINT32:
+            line = [0 if x is None else x for x in result[k]]
+            s = Series(data=line, dtype='uint32')
+        else:
+            s = Series(data=result[k])
+
+        out_frame[_db_field_name(k)] = s
+
+    return out_frame
 
 
 _event_json_fields = [
