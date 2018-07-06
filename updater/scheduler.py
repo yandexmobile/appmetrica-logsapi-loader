@@ -44,6 +44,7 @@ class Scheduler(object):
     _SCHEDULE_INTERVAL_MINUTES = 'interval_minutes'
     _SCHEDULE_HOURLY_AT = 'hourly_at'
     _SCHEDULE_EVERY_10TH = 'every_10th'
+    _SCHEDULE_DAILY_AT_HOUR = 'daily_at_hour'
 
     def __init__(self, state_storage: StateStorage,
                  scheduling_definition: SchedulingDefinition,
@@ -125,6 +126,16 @@ class Scheduler(object):
                 minutes=schedule[self._SCHEDULE_EVERY_10TH])
             if self._state.last_update_time > next_update:
                 next_update = next_update + timedelta(minutes=10)
+            delta = next_update - now
+        elif schedule.get(self._SCHEDULE_DAILY_AT_HOUR):
+            since_last = now - self._state.last_update_time
+            if since_last > timedelta(hours=24):
+                return None
+            update_hour = schedule.get(self._SCHEDULE_DAILY_AT_HOUR)
+            next_update = now.replace(hour=update_hour)
+            if next_update < now:
+                next_update = next_update + timedelta(days=1)
+
             delta = next_update - now
 
         if delta.total_seconds() < 0:
