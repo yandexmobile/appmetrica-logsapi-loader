@@ -134,6 +134,7 @@ _UINT16 = 'UInt16'
 _UINT64 = 'UInt64'
 _INT64 = 'Int64'
 _INT32 = 'Int32'
+_UINT32 = 'UInt32'
 _DATE = 'Date'
 _DATETIME = 'DateTime'
 _BOOL = 'UInt8'
@@ -166,6 +167,8 @@ def _mapping_to_db_field(name, type) -> Field:
         return optional(db_name, db_int64(db_name), generated=True)
     elif type_lower == _INT32.lower():
         return optional(db_name, db_int32(db_name), generated=True)
+    elif type_lower == _UINT32.lower():
+        return optional(db_name, db_uint32(db_name), generated=True)
     elif type_lower == _DATE.lower():
         return optional(db_name, db_date(db_name), generated=True)
     elif type_lower == _DATETIME.lower():

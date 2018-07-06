@@ -33,6 +33,10 @@ def db_int32(db_name: str) -> Tuple[str, str]:
     return db_name, 'Int32'
 
 
+def db_uint32(db_name: str) -> Tuple[str, str]:
+    return db_name, 'UInt32'
+
+
 def db_uint64(db_name: str) -> Tuple[str, str]:
     return db_name, 'UInt64'
 
