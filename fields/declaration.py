@@ -130,6 +130,7 @@ def json_unescaper(df: DataFrame) -> Series:
 
 _STRING = 'String'
 _INT16 = 'Int16'
+_UINT16 = 'UInt16'
 _UINT64 = 'UInt64'
 _INT64 = 'Int64'
 _INT32 = 'Int32'
@@ -159,6 +160,8 @@ def _mapping_to_db_field(name, type) -> Field:
         return optional(db_name, db_int16(db_name), generated=True)
     elif type_lower == _UINT64.lower():
         return optional(db_name, db_uint64(db_name), generated=True)
+    elif type_lower == _UINT16.lower():
+        return optional(db_name, db_uint16(db_name), generated=True)
     elif type_lower == _INT64.lower():
         return optional(db_name, db_int64(db_name), generated=True)
     elif type_lower == _INT32.lower():
