@@ -10,6 +10,7 @@
   You may obtain a copy of the License at:
         https://yandex.com/legal/metrica_termsofuse/
 """
+from json import JSONDecodeError
 from typing import List
 
 from settings import EVENTS_JSON_MAPPING
@@ -18,6 +19,9 @@ from .db_types import *
 from .converters import *
 from .source import Source
 import json
+import logging
+
+logger = logging.getLogger(__name__)
 
 _system_defined_fields = [
     system_defined("app_id", db_uint64("AppID")),
@@ -184,8 +188,11 @@ def _json_extractor(df: DataFrame) -> DataFrame:
     for name in _event_json_names:
         result[name] = list()
     for f in df['event_json']:
-        parsed_json = json.loads(f)
-
+        try:
+            parsed_json = json.loads(f)
+        except (TypeError, JSONDecodeError):
+            logger.error('on parsing {}'.format(f))
+            raise
         parsed_json = {k.lower(): v for k, v in parsed_json.items()}
         for name in _event_json_names:
             value = parsed_json.get(name.lower())
