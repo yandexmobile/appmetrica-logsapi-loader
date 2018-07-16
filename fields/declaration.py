@@ -188,18 +188,22 @@ def _json_extractor(df: DataFrame) -> DataFrame:
     for name in _event_json_names:
         result[name] = list()
     for f in df['event_json']:
+        if type(f) is float:
+            continue
+
         try:
             parsed_json = json.loads(f)
+            parsed_json = {k.lower(): v for k, v in parsed_json.items()}
+            for name in _event_json_names:
+                value = parsed_json.get(name.lower())
+                if type(value) is bool:
+                    result[name].append(1 if value else 0)
+                else:
+                    result[name].append(value)
         except (TypeError, JSONDecodeError):
             logger.error('on parsing {}'.format(f))
-            raise
-        parsed_json = {k.lower(): v for k, v in parsed_json.items()}
-        for name in _event_json_names:
-            value = parsed_json.get(name.lower())
-            if type(value) is bool:
-                result[name].append(1 if value else 0)
-            else:
-                result[name].append(value)
+            pass
+
     out_frame = DataFrame()
     for k, v in _event_json_mapping.items():
         v_lower = v.lower()
@@ -213,7 +217,7 @@ def _json_extractor(df: DataFrame) -> DataFrame:
             line = [0 if x is None else x for x in result[k]]
             s = Series(data=line, dtype='uint16')
         elif v_lower == _STRING:
-            line = [0 if x is None else x for x in result[k]]
+            line = ['' if x is None else x for x in result[k]]
             s = Series(data=line, dtype='str')
         elif v_lower == _INT64:
             line = [0 if x is None else x for x in result[k]]
