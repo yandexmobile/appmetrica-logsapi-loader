@@ -224,7 +224,7 @@ class Scheduler(object):
 
             new = self._filter_without_state(date_range, app_id_state)
             result_set = set(new)
-            result_set.remove(started_at.date())
+            result_set.remove(pd.Timestamp(year=date_to.year, month=date_to.month, day=date_to.day))
             if len(date_range) > 2:
                 result_set.add(date_range[0])  # oldest date(may be archived
                 result_set.add(date_range[-2])  # yesterday
