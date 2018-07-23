@@ -153,7 +153,7 @@ _event_json_names = _event_json_mapping.keys()
 
 
 def _db_field_name(name: str) -> str:
-    return f"_{name}"
+    return name
 
 
 def _mapping_to_db_field(name, type) -> Field:
@@ -193,7 +193,7 @@ def _json_extractor(df: DataFrame) -> DataFrame:
 
         try:
             parsed_json = json.loads(f)
-            parsed_json = {k.lower(): v for k, v in parsed_json.items()}
+            parsed_json = {k.lower().strip('_'): v for k, v in parsed_json.items()}
             for name in _event_json_names:
                 value = parsed_json.get(name.lower())
                 if type(value) is bool:
