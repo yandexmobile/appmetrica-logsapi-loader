@@ -155,12 +155,19 @@ class Scheduler(object):
             sleep(wait_time.total_seconds())
 
     def _archive_old_dates(self, app_id_state: AppIdState):
+        logger.info('Archiving old tables')
         for p_date, updated_at in app_id_state.date_updates.items():
+            logger.info('checking date {}'.format(p_date))
             if self._is_date_archived(app_id_state, p_date):
+                logger.info('date is archived')
                 continue
+
             last_event_date = datetime.combine(p_date, time.max)
             fresh = updated_at - last_event_date < self._fresh_limit
+            logger.debug('updated_at:{} last_event_date:{} fresh limit:{}'.format(updated_at, last_event_date,
+                                                                                  self._fresh_limit))
             if not fresh:
+                logger.info('archiving date')
                 for source in self._definition.date_required_sources:
                     yield UpdateRequest(source, app_id_state.app_id, p_date,
                                         UpdateRequest.ARCHIVE)
