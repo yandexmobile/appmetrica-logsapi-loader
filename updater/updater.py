@@ -17,6 +17,7 @@ from typing import Dict, Optional
 from pandas import DataFrame, Series
 
 from fields import Converter, ProcessingDefinition, LoadingDefinition
+from fields.field import Extractor
 from logs_api import Loader, LogsApiClient, LogsApiPartsCountError
 from .db_controller import DbController
 
@@ -58,13 +59,13 @@ class Updater(object):
 
     @staticmethod
     def _apply_extractors(df: DataFrame,
-                          extractors: Dict[str, Converter]) \
+                          extractors: Dict[str, Extractor]) \
             -> DataFrame:
         logger.debug('Applying extractors')
         for _, extractor in extractors.items():
             new = extractor(df)
-            for name, series in new.iteritems():
-                df[name] = series
+            # for name, series in new.items():
+            df = df.assign(**new)
         return df
 
     def _process_data(self, app_id: str, df: DataFrame,

@@ -10,7 +10,7 @@
   You may obtain a copy of the License at:
         https://yandex.com/legal/metrica_termsofuse/
 """
-from typing import Callable, Optional, Tuple
+from typing import Callable, Optional, Tuple, Dict
 
 from pandas import DataFrame, Series
 
@@ -56,7 +56,7 @@ def required(load_name: str, db: Tuple[str, str],
 def optional(load_name: str, db: Tuple[str, str],
              converter: Callable[[DataFrame], Series] = None,
              generated: Optional[bool] = None,
-             extractor: Callable[[DataFrame], DataFrame] = None) -> Field:
+             extractor: Callable[[DataFrame], Dict[str, list]] = None) -> Field:
     if generated is None:
         generated = converter is not None
     return field(load_name=load_name,

@@ -11,7 +11,7 @@
         https://yandex.com/legal/metrica_termsofuse/
 """
 from json import JSONDecodeError
-from typing import List
+from typing import List, Dict
 
 from settings import EVENTS_JSON_MAPPING
 from .helpers import *
@@ -183,17 +183,18 @@ def _mapping_to_db_field(name, type) -> Field:
         raise Exception(f"Unknown type {type}")
 
 
-def _json_extractor(df: DataFrame) -> DataFrame:
+def _json_extractor(df: DataFrame) -> Dict[str, list]:
     result = dict()
     for name in _event_json_names:
         result[name] = list()
     for f in df['event_json']:
-        if type(f) is float:
-            continue
-
         try:
-            parsed_json = json.loads(f)
-            parsed_json = {k.lower().strip('_'): v for k, v in parsed_json.items()}
+            if type(f) is float:
+                parsed_json = dict()
+            else:
+                parsed_json = json.loads(f)
+                parsed_json = {k.lower().strip('_'): v for k, v in parsed_json.items()}
+
             for name in _event_json_names:
                 value = parsed_json.get(name.lower())
                 if type(value) is bool:
@@ -204,40 +205,7 @@ def _json_extractor(df: DataFrame) -> DataFrame:
             logger.error('on parsing {}'.format(f))
             pass
 
-    out_frame = DataFrame()
-    for k, v in _event_json_mapping.items():
-        v_lower = v.lower()
-        if v_lower == _BOOL:
-            line = [0 if x is None else x for x in result[k]]
-            s = Series(data=line, dtype='int8')
-        elif v_lower == _INT16:
-            line = [0 if x is None else x for x in result[k]]
-            s = Series(data=line, dtype='int16')
-        elif v_lower == _UINT16:
-            line = [0 if x is None else x for x in result[k]]
-            s = Series(data=line, dtype='uint16')
-        elif v_lower == _STRING:
-            line = ['' if x is None else x for x in result[k]]
-            s = Series(data=line, dtype='str')
-        elif v_lower == _INT64:
-            line = [0 if x is None else x for x in result[k]]
-            s = Series(data=line, dtype='int64')
-        elif v_lower == _UINT64:
-            line = [0 if x is None else x for x in result[k]]
-            s = Series(data=line, dtype='uint64')
-        elif v_lower == _INT32:
-            line = [0 if x is None else x for x in result[k]]
-            s = Series(data=line, dtype='int32')
-        elif v_lower == _UINT32:
-            line = [0 if x is None else x for x in result[k]]
-            s = Series(data=line, dtype='uint32')
-        else:
-            s = Series(data=result[k])
-
-        out_frame[_db_field_name(k)] = s
-
-    return out_frame
-
+    return result
 
 _event_json_fields = [
                          optional("event_json", db_string("EventParameters"), extractor=_json_extractor,
