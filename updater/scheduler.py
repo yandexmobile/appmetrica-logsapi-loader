@@ -167,7 +167,7 @@ class Scheduler(object):
             logger.debug('updated_at:{} last_event_date:{} fresh limit:{}'.format(updated_at, last_event_date,
                                                                                   self._fresh_limit))
             if not fresh:
-                logger.info('archiving date')
+                logger.info('archiving date {}'.format(p_date))
                 for source in self._definition.date_required_sources:
                     yield UpdateRequest(source, app_id_state.app_id, p_date,
                                         UpdateRequest.ARCHIVE)
