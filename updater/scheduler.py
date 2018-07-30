@@ -163,7 +163,7 @@ class Scheduler(object):
                 continue
 
             last_event_date = datetime.combine(p_date, time.max)
-            fresh = updated_at - last_event_date < self._fresh_limit
+            fresh = datetime.now() - last_event_date < self._fresh_limit
             logger.debug('updated_at:{} last_event_date:{} fresh limit:{}'.format(updated_at, last_event_date,
                                                                                   self._fresh_limit))
             if not fresh:
