@@ -163,7 +163,8 @@ class Scheduler(object):
                 continue
 
             last_event_date = datetime.combine(p_date, time.max)
-            fresh = datetime.now() - last_event_date < self._fresh_limit
+            threshold = (datetime.now() - self._fresh_limit)
+            fresh = (last_event_date > threshold) or (updated_at < threshold)
             logger.debug('updated_at:{} last_event_date:{} fresh limit:{}'.format(updated_at, last_event_date,
                                                                                   self._fresh_limit))
             if not fresh:
@@ -206,6 +207,13 @@ class Scheduler(object):
     def _filter_without_state(dates, state: AppIdState):
         return [d for d in dates if d.date() not in state.date_updates]
 
+    def _filter_not_archived_and_older(self, dates: List[datetime], older_than: timedelta, state: AppIdState):
+        now = datetime.now()
+        return [d for d in dates if
+                state.date_updates.get(d.date()) is not None
+                and state.date_updates.get(d.date()) == self.ARCHIVED_DATE
+                and now - state.date_updates.get(d.date()) > older_than]
+
     def update_requests(self) \
             -> Generator[UpdateRequest, None, None]:
         if self._load_interval.total_seconds() > 0:
@@ -230,11 +238,17 @@ class Scheduler(object):
             date_range = pd.date_range(date_from, date_to).tolist()
 
             new = self._filter_without_state(date_range, app_id_state)
+            not_archived = self._filter_not_archived_and_older(date_range, self._fresh_limit, app_id_state)
             result_set = set(new)
+
+            first_date = date_to - self._fresh_limit
+            result_set.add(pd.Timestamp(year=first_date.year, month=first_date.month,
+                                        day=first_date.day))  # oldest date(may be archived
+            result_set.add(date_range[-2])  # yesterday
+            for na in not_archived:
+                result_set.add(na)
+
             result_set.remove(pd.Timestamp(year=date_to.year, month=date_to.month, day=date_to.day))
-            if len(date_range) > 2:
-                result_set.add(date_range[0])  # oldest date(may be archived
-                result_set.add(date_range[-2])  # yesterday
 
             logger.debug("dates to update {}".format(result_set))
             for pd_date in sorted(result_set):
