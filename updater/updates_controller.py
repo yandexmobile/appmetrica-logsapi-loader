@@ -12,7 +12,7 @@
 """
 import datetime
 import logging
-import time
+import sys
 from typing import Optional
 
 from fields import SourcesCollection, ProcessingDefinition, LoadingDefinition
@@ -123,6 +123,5 @@ class UpdatesController(object):
             try:
                 self._step()
             except Exception as e:
-                logger.warning(e, exc_info=True)
-                time.sleep(10)
-
+                logger.error(e, exc_info=True)
+                sys.exit(127)
