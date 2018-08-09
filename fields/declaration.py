@@ -199,6 +199,8 @@ def _json_extractor(df: DataFrame) -> Dict[str, list]:
                 value = parsed_json.get(name.lower())
                 if type(value) is bool:
                     result[name].append(1 if value else 0)
+                elif value is None:
+                    result[name].append(value)
                 elif value.lower() == 'true':
                     result[name].append('1')
                 elif value.lower() == 'false':
