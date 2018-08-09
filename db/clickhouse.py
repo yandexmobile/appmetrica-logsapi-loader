@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 
 class ClickhouseDatabase(Database):
-    QUERY_LOG_LIMIT = 200
+    QUERY_LOG_LIMIT = 1200
 
     def __init__(self, url: str, login: str, password: str, db_name: str):
         super().__init__(db_name)
