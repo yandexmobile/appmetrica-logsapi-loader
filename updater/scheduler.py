@@ -164,11 +164,15 @@ class Scheduler(object):
 
             last_event_date = datetime.combine(p_date, time.max)
             threshold = (datetime.now() - self._fresh_limit)
-            fresh = (last_event_date > threshold) or (updated_at < threshold)
+            old = (last_event_date < threshold) or (updated_at < threshold)
             logger.debug('threshold:{} updated_at:{} last_event_date:{} fresh limit:{}'.format(threshold, updated_at, last_event_date,
                                                                                   self._fresh_limit))
-            if not fresh:
+            if old:
                 logger.info('archiving date {}'.format(p_date))
+                logger.info('updating data first')
+                updates = self._update_date(app_id_state, p_date, datetime.now())
+                for update_request in updates:
+                    yield update_request
                 for source in self._definition.date_required_sources:
                     yield UpdateRequest(source, app_id_state.app_id, p_date,
                                         UpdateRequest.ARCHIVE)
