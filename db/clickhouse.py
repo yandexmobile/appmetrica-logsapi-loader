@@ -181,16 +181,30 @@ class ClickhouseDatabase(Database):
         return self._query_clickhouse(tsv_content, query=query)
 
     def copy_data(self, source_table: str, target_table: str):
+        dest_fields = self._extract_fields(target_table)
+        field_list = ', '.join(dest_fields)
         query = '''
             INSERT INTO {db}.{to_table} 
-                SELECT *
+                SELECT {field_list}
                 FROM {db}.{from_table}
         '''.format(
             db=self.db_name,
             from_table=source_table,
             to_table=target_table,
+            field_list=field_list
         )
         self._query_clickhouse(query)
+
+    def _extract_fields(self, name: str) -> List[str]:
+        command = "SHOW CREATE TABLE {project}.{name}".format(
+            project=self.db_name,
+            name=name
+        )
+        out = self._query_clickhouse(command)
+        field_list = re.search('\(([^)]+)\)', out)
+        pairs = field_list.group(1).strip(' ').split(",")
+        result = [x.split()[0] for x in pairs]
+        return result
 
     def _copy_data_distinct(self, source_table: str, target_table: str,
                             unique_fields: List[str]):
