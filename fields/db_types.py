@@ -51,3 +51,6 @@ def db_datetime(db_name: str) -> Tuple[str, str]:
 
 def db_bool(db_name: str) -> Tuple[str, str]:
     return db_name, 'UInt8'
+
+def db_float32(db_name: str) -> Tuple[str, str]:
+    return db_name, 'Float32'

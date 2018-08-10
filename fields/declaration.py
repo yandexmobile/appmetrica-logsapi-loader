@@ -142,6 +142,7 @@ _UINT32 = 'uint32'
 _DATE = 'date'
 _DATETIME = 'datetime'
 _BOOL = 'uint8'
+_FLOAT32 = 'float32'
 
 _event_json_mapping = EVENTS_JSON_MAPPING
 # _event_json_mapping = {
@@ -179,6 +180,8 @@ def _mapping_to_db_field(name, type) -> Field:
         return optional(db_name, db_datetime(db_name), generated=True)
     elif type_lower == _BOOL:
         return optional(db_name, db_bool(db_name), generated=True)
+    elif type_lower == _FLOAT32:
+        return optional(db_name, db_float32(db_name), generated=True)
     else:
         raise Exception(f"Unknown type {type}")
 
