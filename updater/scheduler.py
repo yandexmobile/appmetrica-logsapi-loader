@@ -255,7 +255,7 @@ class Scheduler(object):
             result_set.remove(pd.Timestamp(year=date_to.year, month=date_to.month, day=date_to.day))
 
             logger.debug("dates to update {}".format(result_set))
-            for pd_date in sorted(result_set):
+            for pd_date in sorted(result_set, reverse=True):
                 p_date = pd_date.to_pydatetime().date()  # type: date
                 updates = self._update_date(app_id_state, p_date, started_at)
                 for update_request in updates:
