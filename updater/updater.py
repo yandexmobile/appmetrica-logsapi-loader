@@ -38,7 +38,11 @@ class Updater(object):
             series = df[col]  # type: Series
             if 'Int' in db_type:
                 series.fillna(0, inplace=True)
-                df[col] = series.astype(db_type.lower())
+                try:
+                    df[col] = series.astype(db_type.lower())
+                except:
+                    logger.error('On cast {name} to {type}'.format(name=col, type=db_type.lower()))
+                    raise
         return df
 
     @staticmethod
