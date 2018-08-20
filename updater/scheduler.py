@@ -248,7 +248,6 @@ class Scheduler(object):
             first_date = date_to - self._fresh_limit
             result_set.add(pd.Timestamp(year=first_date.year, month=first_date.month,
                                         day=first_date.day))  # oldest date(may be archived
-            result_set.add(date_range[-2])  # yesterday
             for na in not_archived:
                 result_set.add(na)
 
