@@ -210,7 +210,8 @@ def _json_extractor(df: DataFrame) -> Dict[str, list]:
                     result[name].append(value)
         except (TypeError, JSONDecodeError):
             logger.error('on parsing {}'.format(f))
-            pass
+            for name in _event_json_names:
+                result[name].append(None)
 
     return result
 
