@@ -245,9 +245,6 @@ class Scheduler(object):
             not_archived = self._filter_not_archived_and_older(date_range, self._fresh_limit, app_id_state)
             result_set = set(new)
 
-            first_date = date_to - self._fresh_limit
-            result_set.add(pd.Timestamp(year=first_date.year, month=first_date.month,
-                                        day=first_date.day))  # oldest date(may be archived
             for na in not_archived:
                 result_set.add(na)
 
