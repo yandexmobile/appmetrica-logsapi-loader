@@ -235,10 +235,6 @@ class Scheduler(object):
             date_to = started_at.date()
             date_from = date_to - self._update_limit
 
-            updates = self._archive_old_dates(app_id_state)
-            for update_request in updates:
-                yield update_request
-
             date_range = pd.date_range(date_from, date_to).tolist()
 
             new = self._filter_without_state(date_range, app_id_state)
@@ -260,6 +256,11 @@ class Scheduler(object):
             updates = self._update_date_ignored_fields(app_id_state.app_id)
             for update_request in updates:
                 yield update_request
+
+            updates = self._archive_old_dates(app_id_state)
+            for update_request in updates:
+                yield update_request
+
         self._finish_updates()
 
     def _update_between(self, app_id_state: AppIdState, dt_from: datetime, dt_to: datetime) \
