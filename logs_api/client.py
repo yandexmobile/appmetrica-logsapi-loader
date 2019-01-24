@@ -46,10 +46,12 @@ class LogsApiClient(object):
             app_id=app_id
         )
         params = {
-            'oauth_token': self.token
         }
         headers = {
-            'User-Agent': self._user_agent
+            'User-Agent': self._user_agent,
+            'Authorization': 'OAuth {token}'.format(
+                token=self.token
+            )
         }
 
         r = requests.get(url, params=params, headers=headers)
