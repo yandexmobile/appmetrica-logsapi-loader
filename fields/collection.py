@@ -39,8 +39,8 @@ class LoadingDefinition(object):
 
 
 class DbTableDefinition(object):
-    def __init__(self, source: Source):
-        self.table_name = source.db_name
+    def __init__(self, source: Source, name=None):
+        self.table_name = source.db_name if name is None else name
         self.primary_keys = []
         self.column_types = dict()
         self.field_types = dict()
@@ -62,11 +62,14 @@ class DbTableDefinition(object):
 class ProcessingDefinition(object):
     def __init__(self, source: Source):
         self.field_converters = dict()
+        self.field_extractors = dict()
         self.field_types = dict()
         for field in source.fields:
             field_name = field.load_name
             if field.converter:
                 self.field_converters[field_name] = field.converter
+            if field.extractor:
+                self.field_extractors[field_name] = field.extractor
             self.field_types[field_name] = field.db_type
 
 

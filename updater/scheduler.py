@@ -13,7 +13,7 @@
 from datetime import datetime, date, time, timedelta
 import logging
 from time import sleep
-from typing import List, Optional, Generator
+from typing import List, Optional, Generator, Dict
 
 import pandas as pd
 
@@ -27,29 +27,42 @@ class UpdateRequest(object):
     ARCHIVE = 'archive'
     LOAD_ONE_DATE = 'load_one_date'
     LOAD_DATE_IGNORED = 'load_date_ignored'
+    LOAD_INTERVAL = 'load_interval'
 
     def __init__(self, source: str, app_id: str, p_date: Optional[date],
-                 update_type: str):
+                 update_type: str, interval_from: Optional[datetime] = None, interval_to: Optional[datetime] = None):
         self.source = source
         self.app_id = app_id
         self.date = p_date
         self.update_type = update_type
+        self.interval_from = interval_from
+        self.interval_to = interval_to
 
 
 class Scheduler(object):
     ARCHIVED_DATE = datetime(3000, 1, 1)
+    _SCHEDULE_INTERVAL_MINUTES = 'interval_minutes'
+    _SCHEDULE_HOURLY_AT = 'hourly_at'
+    _SCHEDULE_EVERY_10TH = 'every_10th'
+    _SCHEDULE_DAILY_AT_HOUR = 'daily_at_hour'
 
     def __init__(self, state_storage: StateStorage,
                  scheduling_definition: SchedulingDefinition,
                  app_ids: List[str], update_limit: timedelta,
-                 update_interval: timedelta, fresh_limit: timedelta):
+                 update_schedule: Dict[str, int], load_interval: timedelta,
+                 fresh_limit: timedelta):
         self._state_storage = state_storage
         self._definition = scheduling_definition
         self._app_ids = app_ids
         self._update_limit = update_limit
-        self._update_interval = update_interval
+        self._update_schedule = update_schedule
+        # self._update_interval = update_interval
+        self._load_interval = load_interval
         self._fresh_limit = fresh_limit
         self._state = None
+
+    def _update_interval(self) -> int:
+        return self._update_schedule.get(self._SCHEDULE_INTERVAL_MINUTES, 0)
 
     def _load_state(self):
         self._state = self._state_storage.load()
@@ -91,30 +104,75 @@ class Scheduler(object):
         self._state.last_update_time = now or datetime.now()
         self._save_state()
 
-    def _wait_time(self, update_interval: timedelta,
+    def _wait_time(self,
+                   schedule: Dict[str, int],
                    now: datetime = None) \
             -> Optional[timedelta]:
         if not self._state.last_update_time:
             return None
+
         now = now or datetime.now()
-        delta = self._state.last_update_time - now + update_interval
+        delta = timedelta(seconds=0)
+        if schedule.get(self._SCHEDULE_INTERVAL_MINUTES):
+            delta = self._state.last_update_time - now + timedelta(minutes=schedule[self._SCHEDULE_INTERVAL_MINUTES])
+        elif schedule.get(self._SCHEDULE_HOURLY_AT):
+            next_update = self._state.last_update_time.replace(minute=0, second=0, microsecond=0) \
+                          + timedelta(hours=1, minutes=schedule[self._SCHEDULE_HOURLY_AT])
+            delta = next_update - now
+        elif schedule.get(self._SCHEDULE_EVERY_10TH):
+            hour = self._state.last_update_time.replace(minute=0, second=0, microsecond=0)
+            tens_since_hour = (self._state.last_update_time.minute // 10) * 10
+            next_update = hour + timedelta(minutes=tens_since_hour) + timedelta(
+                minutes=schedule[self._SCHEDULE_EVERY_10TH])
+            if self._state.last_update_time > next_update:
+                next_update = next_update + timedelta(minutes=10)
+            delta = next_update - now
+        elif schedule.get(self._SCHEDULE_DAILY_AT_HOUR):
+            since_last = now - self._state.last_update_time
+            if since_last > timedelta(hours=24):
+                return None
+            update_hour = schedule.get(self._SCHEDULE_DAILY_AT_HOUR)
+            next_update = now.replace(hour=update_hour)
+            if next_update < now:
+                next_update = next_update + timedelta(days=1)
+
+            delta = next_update - now
+        else:
+            raise Exception("No schedule")
+
         if delta.total_seconds() < 0:
             return None
         return delta
 
+    @staticmethod
+    def round_based(x, base=5):
+        return int(base * round(float(x) / base))
+
     def _wait_if_needed(self):
-        wait_time = self._wait_time(self._update_interval)
+        wait_time = self._wait_time(self._update_schedule)
         if wait_time:
             logger.info('Sleep for {}'.format(wait_time))
             sleep(wait_time.total_seconds())
 
     def _archive_old_dates(self, app_id_state: AppIdState):
+        logger.info('Archiving old tables')
         for p_date, updated_at in app_id_state.date_updates.items():
+            logger.info('checking date {}'.format(p_date))
             if self._is_date_archived(app_id_state, p_date):
+                logger.info('date is archived')
                 continue
+
             last_event_date = datetime.combine(p_date, time.max)
-            fresh = updated_at - last_event_date < self._fresh_limit
-            if not fresh:
+            threshold = (datetime.now() - self._fresh_limit)
+            old = (last_event_date < threshold) or (updated_at < threshold)
+            logger.debug('threshold:{} updated_at:{} last_event_date:{} fresh limit:{}'.format(threshold, updated_at, last_event_date,
+                                                                                  self._fresh_limit))
+            if old:
+                logger.info('archiving date {}'.format(p_date))
+                logger.info('updating data first')
+                updates = self._update_date(app_id_state, p_date, datetime.now())
+                for update_request in updates:
+                    yield update_request
                 for source in self._definition.date_required_sources:
                     yield UpdateRequest(source, app_id_state.app_id, p_date,
                                         UpdateRequest.ARCHIVE)
@@ -127,7 +185,8 @@ class Scheduler(object):
         updated_at = app_id_state.date_updates.get(p_date)
         last_event_date = datetime.combine(p_date, time.max)
         if updated_at:
-            updated = started_at - updated_at < self._update_interval
+            minutes = (started_at - updated_at).total_seconds() // 60
+            updated = minutes < self._update_interval()
             if updated:
                 return
         last_event_delta = (updated_at or started_at) - last_event_date
@@ -148,7 +207,25 @@ class Scheduler(object):
             yield UpdateRequest(source, app_id, None,
                                 UpdateRequest.LOAD_DATE_IGNORED)
 
+    @staticmethod
+    def _filter_without_state(dates, state: AppIdState):
+        return [d for d in dates if d.date() not in state.date_updates]
+
+    def _filter_not_archived_and_older(self, dates: List[datetime], older_than: timedelta, state: AppIdState):
+        now = datetime.now()
+        return [d for d in dates if
+                state.date_updates.get(d.date()) is not None
+                and state.date_updates.get(d.date()) == self.ARCHIVED_DATE
+                and now - state.date_updates.get(d.date()) > older_than]
+
     def update_requests(self) \
+            -> Generator[UpdateRequest, None, None]:
+        if self._load_interval.total_seconds() > 0:
+            return self.mainstream_update()
+        else:
+            return self.date_update_requests()
+
+    def date_update_requests(self) \
             -> Generator[UpdateRequest, None, None]:
         self._load_state()
         self._wait_if_needed()
@@ -158,11 +235,19 @@ class Scheduler(object):
             date_to = started_at.date()
             date_from = date_to - self._update_limit
 
-            updates = self._archive_old_dates(app_id_state)
-            for update_request in updates:
-                yield update_request
+            date_range = pd.date_range(date_from, date_to).tolist()
 
-            for pd_date in pd.date_range(date_from, date_to):
+            new = self._filter_without_state(date_range, app_id_state)
+            not_archived = self._filter_not_archived_and_older(date_range, self._fresh_limit, app_id_state)
+            result_set = set(new)
+
+            for na in not_archived:
+                result_set.add(na)
+
+            result_set.remove(pd.Timestamp(year=date_to.year, month=date_to.month, day=date_to.day))
+
+            logger.debug("dates to update {}".format(result_set))
+            for pd_date in sorted(result_set, reverse=True):
                 p_date = pd_date.to_pydatetime().date()  # type: date
                 updates = self._update_date(app_id_state, p_date, started_at)
                 for update_request in updates:
@@ -171,4 +256,34 @@ class Scheduler(object):
             updates = self._update_date_ignored_fields(app_id_state.app_id)
             for update_request in updates:
                 yield update_request
+
+            updates = self._archive_old_dates(app_id_state)
+            for update_request in updates:
+                yield update_request
+
+        self._finish_updates()
+
+    def _update_between(self, app_id_state: AppIdState, dt_from: datetime, dt_to: datetime) \
+            -> Generator[UpdateRequest, None, None]:
+        sources = self._definition.date_required_sources
+        for source in sources:
+            yield UpdateRequest(source, app_id_state.app_id, None,
+                                UpdateRequest.LOAD_INTERVAL, dt_from, dt_to)
+
+    def mainstream_update(self) \
+            -> Generator[UpdateRequest, None, None]:
+        self._load_state()
+        self._wait_if_needed()
+        started_at = datetime.utcnow()
+        datetime_to = started_at - timedelta(minutes=started_at.minute % (self._load_interval.seconds // 60),
+                                             seconds=started_at.second,
+                                             microseconds=started_at.microsecond)
+        datetime_from = datetime_to - self._load_interval
+        datetime_to = datetime_to - timedelta(seconds=1)
+        for app_id in self._app_ids:
+            app_id_state = self._get_or_create_app_id_state(app_id)
+            updates = self._update_between(app_id_state, datetime_from, datetime_to)
+            for update_request in updates:
+                yield update_request
+
         self._finish_updates()

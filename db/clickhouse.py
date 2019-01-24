@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 
 class ClickhouseDatabase(Database):
-    QUERY_LOG_LIMIT = 200
+    QUERY_LOG_LIMIT = 1200
 
     def __init__(self, url: str, login: str, password: str, db_name: str):
         super().__init__(db_name)
@@ -114,6 +114,14 @@ class ClickhouseDatabase(Database):
         )
         self._query_clickhouse(q)
 
+    def rename_table(self, from_table_name: str, to_table_name: str):
+        q = '''
+            RENAME TABLE {db}.{from_table} TO {db}.{to_table}
+        '''.format(db=self.db_name,
+                   from_table=from_table_name,
+                   to_table=to_table_name)
+        self._query_clickhouse(q)
+
     def create_merge_table(self, table_name: str,
                            fields: List[Tuple[str, str]],
                            merge_re: str):
@@ -149,6 +157,12 @@ class ClickhouseDatabase(Database):
     def query(self, query_text: str):
         self._query_clickhouse(query_text)
 
+    def list_tables(self):
+        result = self._query_clickhouse("SHOW TABLES FROM {db}".format(
+            db=self.db_name)
+        )
+        return result.splitlines()
+
     def _create_table_like(self, source_table: str, new_table: str):
         query = self._query_clickhouse('SHOW CREATE TABLE {db}.{table}'.format(
             db=self.db_name,
@@ -167,16 +181,30 @@ class ClickhouseDatabase(Database):
         return self._query_clickhouse(tsv_content, query=query)
 
     def copy_data(self, source_table: str, target_table: str):
+        dest_fields = self._extract_fields(target_table)
+        field_list = ', '.join(dest_fields)
         query = '''
             INSERT INTO {db}.{to_table} 
-                SELECT *
+                SELECT {field_list}
                 FROM {db}.{from_table}
         '''.format(
             db=self.db_name,
             from_table=source_table,
             to_table=target_table,
+            field_list=field_list
         )
         self._query_clickhouse(query)
+
+    def _extract_fields(self, name: str) -> List[str]:
+        command = "SHOW CREATE TABLE {project}.{name}".format(
+            project=self.db_name,
+            name=name
+        )
+        out = self._query_clickhouse(command)
+        field_list = re.search('\(([^)]+)\)', out)
+        pairs = field_list.group(1).strip(' ').split(",")
+        result = [x.split()[0] for x in pairs]
+        return result
 
     def _copy_data_distinct(self, source_table: str, target_table: str,
                             unique_fields: List[str]):

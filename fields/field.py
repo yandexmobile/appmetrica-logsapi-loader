@@ -10,19 +10,22 @@
   You may obtain a copy of the License at:
         https://yandex.com/legal/metrica_termsofuse/
 """
-from typing import Optional, Callable
+from typing import Optional, Callable, Dict
 
 from pandas import DataFrame, Series
 
 Converter = Optional[Callable[[DataFrame], Series]]
+Extractor = Optional[Callable[[DataFrame], Dict[str, list]]]
 
 
 class Field(object):
     def __init__(self, load_name: str, db_name: str, db_type: str,
-                 required: bool, generated: bool, converter: Converter):
+                 required: bool, generated: bool, converter: Converter,
+                 extractor: Extractor):
         self.load_name = load_name
         self.db_name = db_name
         self.db_type = db_type
         self.required = required
         self.generated = generated
         self.converter = converter
+        self.extractor = extractor

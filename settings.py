@@ -27,10 +27,14 @@ DEBUG = environ.get('DEBUG', '0') == '1'
 TOKEN = environ['TOKEN']
 APP_IDS = json.loads(environ['APP_IDS'])
 SOURCES = json.loads(environ.get('SOURCES', '[]'))  # empty == all
+PARTS_COUNT = json.loads(environ.get('PARTS_COUNT', '{}'))  # empty == 1
 
 UPDATE_LIMIT = timedelta(days=int(environ.get('UPDATE_LIMIT', '30')))
 FRESH_LIMIT = timedelta(days=int(environ.get('FRESH_LIMIT', '7')))
-UPDATE_INTERVAL = timedelta(hours=int(environ.get('UPDATE_INTERVAL', '12')))
+UPDATE_INTERVAL_MINUTES = timedelta(minutes=int(environ.get('UPDATE_INTERVAL_MINUTES', '4')))
+UPDATE_SCHEDULE = json.loads(environ.get('UPDATE_SCHEDULE',
+                                         '{ "interval_minutes": 4 }'))  # one of { "interval_minutes":4 } { "hourly_at": 15 } { "every_10th":5 }
+LOAD_INTERVAL_MINUTES = timedelta(minutes=int(environ.get('LOAD_INTERVAL_MINUTES', '0')))
 REQUEST_CHUNK_ROWS = int(environ.get('REQUEST_CHUNK_ROWS', '25000'))
 
 STATE_FILE_PATH = environ.get('STATE_FILE_PATH', DEFAULT_STATE_FILE_PATH)
@@ -42,3 +46,5 @@ CH_HOST = environ.get('CH_HOST', 'http://localhost:8123')
 CH_USER = environ.get('CH_USER')
 CH_PASSWORD = environ.get('CH_PASSWORD')
 CH_DATABASE = environ.get('CH_DATABASE', 'mobile')
+
+EVENTS_JSON_MAPPING = json.loads(environ.get('EVENTS_JSON_MAPPING', '{}'))

@@ -17,6 +17,7 @@ from typing import Dict, Optional
 from pandas import DataFrame, Series
 
 from fields import Converter, ProcessingDefinition, LoadingDefinition
+from fields.field import Extractor
 from logs_api import Loader, LogsApiClient, LogsApiPartsCountError
 from .db_controller import DbController
 
@@ -24,8 +25,9 @@ logger = logging.getLogger(__name__)
 
 
 class Updater(object):
-    def __init__(self, loader: Loader):
+    def __init__(self, loader: Loader, parts_count: Dict[str, int]):
         self._loader = loader
+        self._min_parts_count = parts_count
 
     @staticmethod
     def _ensure_types(df: DataFrame, types: Dict[str, str]) -> DataFrame:
@@ -36,7 +38,11 @@ class Updater(object):
             series = df[col]  # type: Series
             if 'Int' in db_type:
                 series.fillna(0, inplace=True)
-                df[col] = series.astype(db_type.lower())
+                try:
+                    df[col] = series.astype(db_type.lower())
+                except:
+                    logger.error('On cast {name} to {type}'.format(name=col, type=db_type.lower()))
+                    raise
         return df
 
     @staticmethod
@@ -55,12 +61,24 @@ class Updater(object):
             df[name] = converter(df)
         return df
 
+    @staticmethod
+    def _apply_extractors(df: DataFrame,
+                          extractors: Dict[str, Extractor]) \
+            -> DataFrame:
+        logger.debug('Applying extractors')
+        for _, extractor in extractors.items():
+            new = extractor(df)
+            # for name, series in new.items():
+            df = df.assign(**new)
+        return df
+
     def _process_data(self, app_id: str, df: DataFrame,
                       processing_definition: ProcessingDefinition):
         df = df.copy()  # type: DataFrame
-        df = self._ensure_types(df, processing_definition.field_types)
         df = self._append_system_fields(df, app_id)
         df = self._apply_converters(df, processing_definition.field_converters)
+        df = self._apply_extractors(df, processing_definition.field_extractors)
+        df = self._ensure_types(df, processing_definition.field_types)
         return df
 
     def _load(self, app_id: str, loading_definition: LoadingDefinition,
@@ -79,7 +97,8 @@ class Updater(object):
                     db_controller: DbController,
                     processing_definition: ProcessingDefinition,
                     loading_definition: LoadingDefinition):
-        db_controller.recreate_table(table_suffix)
+        temp_table_controller = db_controller.create_temp_table_controller()
+        temp_table_controller.recreate_table(table_suffix)
 
         df_it = self._load(app_id, loading_definition, since, until,
                            LogsApiClient.DATE_DIMENSION_CREATE, parts_count)
@@ -87,7 +106,10 @@ class Updater(object):
             logger.debug("Start processing data chunk")
             upload_df = self._process_data(app_id, df,
                                            processing_definition)
-            db_controller.insert_data(upload_df, table_suffix)
+            temp_table_controller.insert_data(upload_df, table_suffix)
+
+        db_controller.replace_with(table_suffix, temp_table_controller)
+        db_controller.delete_sub_parts(table_suffix)
 
     def update(self, app_id: str, date: Optional[datetime.date],
                table_suffix: str, db_controller: DbController,
@@ -98,7 +120,14 @@ class Updater(object):
             since = datetime.datetime.combine(date, datetime.time.min)
             until = datetime.datetime.combine(date, datetime.time.max)
 
-        parts_count = 1
+        self._update(app_id, db_controller, loading_definition, processing_definition, since, table_suffix, until)
+
+    def update_interval(self, app_id, db_controller, loading_definition, processing_definition, since, table_suffix,
+                        until):
+        self._update(app_id, db_controller, loading_definition, processing_definition, since, table_suffix, until)
+
+    def _update(self, app_id, db_controller, loading_definition, processing_definition, since, table_suffix, until):
+        parts_count = self._min_parts_count.get(db_controller.definition.table_name, 1)
         is_loading_completed = False
         while not is_loading_completed:
             try:
@@ -108,3 +137,4 @@ class Updater(object):
                 is_loading_completed = True
             except LogsApiPartsCountError:
                 parts_count *= 2
+                logger.warning("Parts count error, increasing to {}.".format(parts_count))

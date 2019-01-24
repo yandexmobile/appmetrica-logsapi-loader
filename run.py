@@ -60,12 +60,15 @@ def main():
         file_name=settings.STATE_FILE_PATH
     )
     updater = Updater(
-        loader=logs_api_loader
+        loader=logs_api_loader,
+        parts_count=settings.PARTS_COUNT
     )
     scheduler = Scheduler(
         state_storage=state_storage,
         app_ids=settings.APP_IDS,
-        update_interval=settings.UPDATE_INTERVAL,
+        # update_interval=settings.UPDATE_INTERVAL_MINUTES,
+        update_schedule=settings.UPDATE_SCHEDULE,
+        load_interval=settings.LOAD_INTERVAL_MINUTES,
         update_limit=settings.UPDATE_LIMIT,
         fresh_limit=settings.FRESH_LIMIT,
         scheduling_definition=sources_collection.scheduling_definition()

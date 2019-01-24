@@ -21,6 +21,22 @@ def db_int16(db_name: str) -> Tuple[str, str]:
     return db_name, 'Int16'
 
 
+def db_uint16(db_name: str) -> Tuple[str, str]:
+    return db_name, 'UInt16'
+
+
+def db_int64(db_name: str) -> Tuple[str, str]:
+    return db_name, 'Int64'
+
+
+def db_int32(db_name: str) -> Tuple[str, str]:
+    return db_name, 'Int32'
+
+
+def db_uint32(db_name: str) -> Tuple[str, str]:
+    return db_name, 'UInt32'
+
+
 def db_uint64(db_name: str) -> Tuple[str, str]:
     return db_name, 'UInt64'
 
@@ -35,3 +51,6 @@ def db_datetime(db_name: str) -> Tuple[str, str]:
 
 def db_bool(db_name: str) -> Tuple[str, str]:
     return db_name, 'UInt8'
+
+def db_float32(db_name: str) -> Tuple[str, str]:
+    return db_name, 'Float32'

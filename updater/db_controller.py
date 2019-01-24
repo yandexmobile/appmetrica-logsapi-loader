@@ -16,6 +16,7 @@ from pandas import DataFrame
 
 from db import Database
 from fields import DbTableDefinition
+from copy import copy
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +37,7 @@ class DbController(object):
     ARCHIVE_SUFFIX = 'old'
     ALL_SUFFIX = 'all'
     LATEST_SUFFIX = 'latest'
+    TEMP_PREFIX = 'z_temp'
 
     def __init__(self, db: Database, definition: DbTableDefinition):
         self._db = db
@@ -59,6 +61,10 @@ class DbController(object):
     @property
     def primary_keys(self):
         return self._definition.primary_keys
+
+    @property
+    def definition(self):
+        return self._definition
 
     def _prepare_db(self):
         if not self._db.database_exists():
@@ -125,6 +131,24 @@ class DbController(object):
         table_name = self.table_name(table_suffix)
         self._db.drop_table(table_name)
         self._create_table(table_name)
+
+    def delete_sub_parts(self, table_suffix: str):
+        table_name = self.table_name(table_suffix)
+        tables = self._db.list_tables()
+        sub_parts = [x for x in tables if (x.startswith(table_name) and x != table_name)]
+        for part in sub_parts:
+            self._db.drop_table(part)
+
+    def create_temp_table_controller(self):
+        temp_name = "{}__{}".format(self.TEMP_PREFIX, self._definition.table_name)
+        temp_def = copy(self._definition)
+        temp_def.table_name = temp_name
+        return DbController(self._db, temp_def)
+
+    def replace_with(self, table_suffix: str, source):
+        table_name = self.table_name(table_suffix)
+        self._db.drop_table(table_name)
+        self._db.rename_table(source.table_name(table_suffix), table_name)
 
     def ensure_table_created(self, table_suffix: str):
         table_name = self.table_name(table_suffix)
